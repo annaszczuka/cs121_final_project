@@ -27,11 +27,12 @@ CREATE TABLE store (
     -- unique identifier for each store 
     store_id         CHAR(7), 
     -- city store is located in, all stores are located in U.S.A
-    store_location   VARCHAR(255) NOT NULL,
-    -- number of customers who have visited the store 
-    -- on day of purchase of transaction
-    foot_traffic     INT NOT NULL,      
-    PRIMARY KEY (store_id)
+    store_location   VARCHAR(255),
+    year_opened      YEAR NOT NULL, 
+    -- -- number of customers who have visited the store 
+    -- -- on day of purchase of transaction
+    -- foot_traffic     INT NOT NULL,      
+    PRIMARY KEY (store_id, store_location)
 );
 
 -- Represents products uniquely identified by transaction_id
@@ -44,21 +45,21 @@ CREATE TABLE product (
     product_category       VARCHAR(255) NOT NULL,
     -- price product retails for, capped at 1 million, in usd
     product_price_usd      NUMERIC(8, 2) NOT NULL, 
-    -- cost to produce product, capped at 1k, in usd
-    product_cost_usd       NUMERIC(5, 2) NOT NULL, 
-    -- money made from selling such product, capped at 1 mil, in usd
-    profit_usd             NUMERIC(8, 2) NOT NULL,
+    -- cost to produce product, capped at 10k, in usd
+    product_cost_usd       NUMERIC(6, 2) NOT NULL, 
     -- price product retails for at different store, capped at 1 mil, in usd
     competitor_price_usd   NUMERIC(8, 2) NOT NULL,
     -- number of units of such product at said store
     inventory_level        INT NOT NULL, 
     --  uniquely defines store
     store_id               CHAR(7) NOT NULL, 
+    store_location   VARCHAR(255),
     PRIMARY KEY (transaction_id),
     FOREIGN KEY (transaction_id) REFERENCES transaction(transaction_id)
      -- cascaded update & delete on transaction_id
     ON UPDATE CASCADE ON DELETE CASCADE,
-    FOREIGN KEY (store_id) REFERENCES store(store_id)
+    FOREIGN KEY (store_id, store_location) 
+    REFERENCES store(store_id, store_location)
      -- cascaded update & delete on store_id
     ON UPDATE CASCADE ON DELETE CASCADE
 );
