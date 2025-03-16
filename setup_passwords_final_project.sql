@@ -39,6 +39,9 @@ CREATE TABLE user_info (
     -- Usernames are up to 20 characters.
     username VARCHAR(20) PRIMARY KEY,
 
+    first_name VARCHAR(50) NOT NULL,
+    last_name  VARCHAR(50) NOT NULL, 
+
     -- Salt will be 8 characters all the time, so we can make this 8.
     salt CHAR(8) NOT NULL,
 
@@ -49,9 +52,35 @@ CREATE TABLE user_info (
     -- definition for comparison/sorting than CHAR.
     password_hash BINARY(64) NOT NULL, 
 
-    -- is_admin is 0 if not admin and 1 if it is an admin
-    is_admin TINYINT(1) NOT NULL DEFAULT 0
+    -- -- is_admin is 0 if not admin and 1 if it is an admin
+    -- is_admin TINYINT(1) NOT NULL DEFAULT 0
 );
+
+-- create the client table
+CREATE TABLE client (
+    -- unique identifier for each client 
+    username          INT PRIMARY KEY,
+    -- unique contact email for the client
+    contact_email     VARCHAR(255) UNIQUE NOT NULL,
+    -- indicates if client is a store manager
+    is_store_manager  BOOLEAN NOT NULL DEFAULT FALSE, 
+    -- optional phone number for source of client contact
+    phone_number      VARCHAR(20), 
+    FOREIGN KEY(username) REFERENCES user_info(username)
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- create the admin table
+CREATE TABLE admin (
+    -- unique identifier for each admin
+    username         INT PRIMARY KEY, 
+    -- admin role in organization 
+    -- options: 
+    employee_type   ENUM('researcher', 'engineer', 'scientist') NOT NULL, 
+    FOREIGN KEY(username) REFERENCES user_info(username) 
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
 
 -- Adds a new user to the user_info table, using the specified password (max
 -- of 20 characters). Salts the password with a newly-generated salt value,
@@ -75,7 +104,8 @@ BEGIN
   -- check if username already exists, if not, then insert into user info
   -- table
   IF NOT EXISTS (SELECT 1 FROM user_info WHERE username = new_username) THEN
-    INSERT INTO user_info (username, salt, password_hash, is_admin) 
+    INSERT INTO user_info (username, salt, password_hash) 
+    -- INSERT INTO user_info (username, salt, password_hash, is_admin) 
     VALUES(new_username, salt, password_hash, admin_status);
   END IF;
 END !
@@ -138,8 +168,9 @@ BEGIN
   DECLARE new_salt CHAR(8);
   DECLARE new_password_hash BINARY(64);
 
-  SELECT is_admin INTO admin_status FROM user_info 
-  WHERE user_info.username = requestor;
+  -- QUESTIONABLE THING 
+  -- SELECT is_admin INTO admin_status FROM user_info 
+  -- WHERE user_info.username = requestor;
 
   IF admin_status = 1 OR requestor = username THEN 
     SET new_salt = make_salt(8);
