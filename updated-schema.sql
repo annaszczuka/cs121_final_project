@@ -111,7 +111,7 @@ CREATE TABLE purchase (
     -- city store is located in, all stores are located in U.S.A
     store_location   VARCHAR(255),
     -- price of the purchased product before the discount
-    purchased_product_price INT, 
+    purchased_product_price_usd INT, 
     PRIMARY KEY(purchase_id), 
     FOREIGN KEY(product_id) 
     REFERENCES product(product_id)
@@ -140,3 +140,5 @@ CREATE TABLE customer_visits (
     FOREIGN KEY(customer_id) REFERENCES customer(customer_id)
     ON UPDATE CASCADE ON DELETE CASCADE
 );
+
+
