@@ -1,6 +1,7 @@
 -- clean up old tables
--- must drop tables with foreign keys first 
+-- must drop tables with foreign keys first
 -- due to referential integrity constraints
+
 DROP TABLE IF EXISTS customer_visits;
 DROP TABLE IF EXISTS purchase;
 DROP TABLE IF EXISTS popularity;
@@ -111,7 +112,7 @@ CREATE TABLE purchase (
     -- city store is located in, all stores are located in U.S.A
     store_location   VARCHAR(255),
     -- price of the purchased product before the discount
-    purchased_product_price_usd INT, 
+    purchased_product_price_usd NUMERIC(6, 2),
     PRIMARY KEY(purchase_id), 
     FOREIGN KEY(product_id) 
     REFERENCES product(product_id)
@@ -132,7 +133,7 @@ CREATE TABLE customer_visits (
     store_id        INT,
     store_location  VARCHAR(255),
     -- indicates if a particular store is a customer's favorite store 
-    is_favorite     BOOLEAN NOT NULL,
+    is_favorite     TINYINT NOT NULL,
     PRIMARY KEY(customer_id, store_id, store_location),
     FOREIGN KEY(store_id, store_location) 
     REFERENCES store(store_id, store_location)
@@ -140,5 +141,4 @@ CREATE TABLE customer_visits (
     FOREIGN KEY(customer_id) REFERENCES customer(customer_id)
     ON UPDATE CASCADE ON DELETE CASCADE
 );
-
 
