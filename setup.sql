@@ -1,183 +1,144 @@
--- CS 121 24wi: Password Management (A6 and Final Project)
--- We drop previously created items if they exist
-DROP FUNCTION IF EXISTS make_salt;
-DROP TABLE IF EXISTS user_info;
-DROP PROCEDURE IF EXISTS sp_add_user;
-DROP FUNCTION IF EXISTS authenticate;
-DROP PROCEDURE IF EXISTS sp_change_password;
+-- clean up old tables
+-- must drop tables with foreign keys first 
+-- due to referential integrity constraints
+DROP TABLE IF EXISTS customer_visits;
+DROP TABLE IF EXISTS purchase;
+DROP TABLE IF EXISTS popularity;
+DROP TABLE IF EXISTS inventory;
+DROP TABLE IF EXISTS product;
+DROP TABLE IF EXISTS customer;
+DROP TABLE IF EXISTS store;
 
--- (Provided) This function generates a specified number of characters for using as a
--- salt in passwords.
-DELIMITER !
-CREATE FUNCTION make_salt(num_chars INT)
-RETURNS VARCHAR(20) DETERMINISTIC
-BEGIN
-    DECLARE salt VARCHAR(20) DEFAULT '';
-
-    -- Don't want to generate more than 20 characters of salt.
-    SET num_chars = LEAST(20, num_chars);
-
-    -- Generate the salt!  Characters used are ASCII code 32 (space)
-    -- through 126 ('z').
-    WHILE num_chars > 0 DO
-        SET salt = CONCAT(salt, CHAR(32 + FLOOR(RAND() * 95)));
-        SET num_chars = num_chars - 1;
-    END WHILE;
-
-    RETURN salt;
-END !
-DELIMITER ;
-
--- Provided (you may modify in your FP if you choose)
--- This table holds information for authenticating users based on
--- a password.  Passwords are not stored plaintext so that they
--- cannot be used by people that shouldn't have them.
--- You may extend that table to include an is_admin or role attribute if you
--- have admin or other roles for users in your application
--- (e.g. store managers, data managers, etc.)
-CREATE TABLE user_info (
-    -- Usernames are up to 20 characters.
-    username VARCHAR(20) PRIMARY KEY,
-
-    first_name VARCHAR(50) NOT NULL,
-    last_name  VARCHAR(50) NOT NULL, 
-
-    -- Salt will be 8 characters all the time, so we can make this 8.
-    salt CHAR(8) NOT NULL,
-
-    -- We use SHA-2 with 256-bit hashes.  MySQL returns the hash
-    -- value as a hexadecimal string, which means that each byte is
-    -- represented as 2 characters.  Thus, 256 / 8 * 2 = 64.
-    -- We can use BINARY or CHAR here; BINARY simply has a different
-    -- definition for comparison/sorting than CHAR.
-    password_hash BINARY(64) NOT NULL, 
-
-    -- -- is_admin is 0 if not admin and 1 if it is an admin
-    -- is_admin TINYINT(1) NOT NULL DEFAULT 0
+-- represents customers uniquely identified by customer_id
+-- requires all non-null values
+CREATE TABLE customer (
+    -- unique identifier for each customer
+    customer_id        INT AUTO_INCREMENT, 
+    -- age of customer at the time of transaction
+    age                INT NOT NULL,
+    -- gender of client, M/F/X (X for nonbinary)
+    gender             CHAR(1) NOT NULL,
+    -- annual income of client, capped at 1 mil, in usd
+    annual_income_usd  NUMERIC(8, 2) NOT NULL,
+    -- first and last name of client 
+    full_name          VARCHAR(255) NOT NULL, 
+    PRIMARY KEY(customer_id),
+    CHECK(gender IN ('M', 'F', 'X'))
 );
 
--- create the client table
-CREATE TABLE client (
-    -- unique identifier for each client 
-    username          INT PRIMARY KEY,
-    -- unique contact email for the client
-    contact_email     VARCHAR(255) UNIQUE NOT NULL,
-    -- indicates if client is a store manager
-    is_store_manager  BOOLEAN NOT NULL DEFAULT FALSE, 
-    -- optional phone number for source of client contact
-    phone_number      VARCHAR(20), 
-    FOREIGN KEY(username) REFERENCES user_info(username)
+-- represents stores uniquely identified by store_id and store_location
+-- requires all non-null values
+CREATE TABLE store (
+    -- unique identifier for each store with store_location
+    store_id         INT,
+    -- city store is located in, all stores are located in U.S.A
+    store_location   VARCHAR(255),
+    -- year the specific store had grand opening
+    year_opened      YEAR NOT NULL, 
+    PRIMARY KEY(store_id, store_location)
+);
+
+-- represents products uniquely identified by product_id and store_id
+-- requires all non-null values
+CREATE TABLE product (
+    -- unique identifier for each product with store_id 
+    product_id          CHAR(7),
+    -- category of item involved in transaction
+    -- e.g Health & Beauty, Electronics, Groceries, Books 
+    product_category    VARCHAR(255) NOT NULL,
+    PRIMARY KEY(product_id)
+);
+
+-- represents inventory at a store, 
+-- uniquely identified by store_id, store_location, and product_id
+CREATE TABLE inventory (
+    product_id             CHAR(7),
+    store_id               INT,
+    store_location         VARCHAR(255),
+    -- number of units of such product at said store available for sale
+    qty                    INT NOT NULL,
+    -- price product retails for, capped at 1 million, in usd
+    product_price_usd      NUMERIC(8, 2) NOT NULL,
+    -- cost to produce product, capped at 10k, in usd
+    product_cost_usd       NUMERIC(6, 2) NOT NULL,
+    -- price product retails for at different store, capped at 1 mil, in usd
+    -- it is the store’s most common competitor 
+    -- if that competitor exists in the current location, else this can be null
+    competitor_price_usd   NUMERIC(8, 2),
+    PRIMARY KEY(product_id, store_id, store_location),
+    FOREIGN KEY(store_id, store_location) 
+    REFERENCES store(store_id, store_location)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(product_id) REFERENCES product(product_id)
     ON UPDATE CASCADE ON DELETE CASCADE
 );
 
--- create the admin table
-CREATE TABLE admin (
-    -- unique identifier for each admin
-    username         INT PRIMARY KEY, 
-    -- admin role in organization 
-    -- options: 
-    employee_type   ENUM('researcher', 'engineer', 'scientist') NOT NULL, 
-    FOREIGN KEY(username) REFERENCES user_info(username) 
+-- represents store popularity tracking foot traffic
+-- requires all non-null values
+-- uniquely identified by store_id, store_location, and visit_date
+CREATE TABLE popularity (
+    -- (store_id, store_location, visit_date) 
+    -- is unique identifer for popoularity
+    store_id         INT,
+    store_location   VARCHAR(255),
+    visit_date       DATE NOT NULL,
+    -- number of customers who have visited the store on visit_date
+    foot_traffic     INT NOT NULL,
+    PRIMARY KEY(store_id, store_location, visit_date),
+    FOREIGN KEY(store_id, store_location) 
+    REFERENCES store(store_id, store_location)
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- represents individual purchases uniquely identified by purchase_id
+-- requires all non-null values
+-- uniquely identified by purchase_id, product_id, store_id, customer_id
+CREATE TABLE purchase (
+    -- (purchase_id, product_id, store_id, customer_id)
+    -- is unique identifier for purchase 
+    purchase_id       CHAR(7),
+    product_id        CHAR(7),
+    store_id          INT,
+    customer_id       INT AUTO_INCREMENT,
+    -- method of payment
+    -- e.g. debit, credit, cash, mobile payment
+    payment_method    VARCHAR(255) NOT NULL,
+    -- percentage of product price that is discounted
+    -- there can not be discount percent by 0.5%
+    discount_percent  INT NOT NULL,
+    -- date a transaction has occurred 
+    txn_date          DATE NOT NULL,
+    -- city store is located in, all stores are located in U.S.A
+    store_location   VARCHAR(255),
+    -- price of the purchased product before the discount
+    purchased_product_price_usd INT, 
+    PRIMARY KEY(purchase_id), 
+    FOREIGN KEY(product_id) 
+    REFERENCES product(product_id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(store_id, store_location) 
+    REFERENCES store(store_id, store_location)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(customer_id) 
+    REFERENCES customer(customer_id)
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- tracks individual customer visits to stores and favorites
+CREATE TABLE customer_visits (
+    -- (customer_id, store_id, store_location)
+    -- is unique identifier for customer_visits
+    customer_id     INT AUTO_INCREMENT,
+    store_id        INT,
+    store_location  VARCHAR(255),
+    -- indicates if a particular store is a customer's favorite store 
+    is_favorite     BOOLEAN NOT NULL,
+    PRIMARY KEY(customer_id, store_id, store_location),
+    FOREIGN KEY(store_id, store_location) 
+    REFERENCES store(store_id, store_location)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY(customer_id) REFERENCES customer(customer_id)
     ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 
--- Adds a new user to the user_info table, using the specified password (max
--- of 20 characters). Salts the password with a newly-generated salt value,
--- and then the salt and hash values are both stored in the table.
-DELIMITER !
-CREATE PROCEDURE sp_add_user(new_username VARCHAR(20), password VARCHAR(20), admin_status TINYINT(1))
-BEGIN
-  -- Salt will be 8 characters all the time, so we can make this 8.
-  DECLARE salt CHAR(8);
-  -- We use SHA-2 with 256-bit hashes.  MySQL returns the hash
-  -- value as a hexadecimal string, which means that each byte is
-  -- represented as 2 characters.  Thus, 256 / 8 * 2 = 64.
-  -- We can use BINARY or CHAR here; BINARY simply has a different
-  -- definition for comparison/sorting than CHAR.
-  DECLARE password_hash BINARY(64);
-  -- We call our make salt function
-  SET salt = make_salt(8);
-  -- Our hashed password is a hashing applied to the combination of our 
-  -- previously generated salt and our password
-  SET password_hash = UNHEX(SHA2(CONCAT(salt, password), 256));
-  -- check if username already exists, if not, then insert into user info
-  -- table
-  IF NOT EXISTS (SELECT 1 FROM user_info WHERE username = new_username) THEN
-    INSERT INTO user_info (username, salt, password_hash) 
-    -- INSERT INTO user_info (username, salt, password_hash, is_admin) 
-    VALUES(new_username, salt, password_hash, admin_status);
-  END IF;
-END !
-DELIMITER ;
-
--- Authenticates the specified username and password against the data
--- in the user_info table.  Returns 1 if the user appears in the table, and the
--- specified password hashes to the value for the user. Otherwise returns 0.
-DELIMITER !
-CREATE FUNCTION authenticate(username VARCHAR(20), password VARCHAR(20))
-RETURNS TINYINT DETERMINISTIC
-BEGIN
-  -- We use SHA-2 with 256-bit hashes.  MySQL returns the hash
-  -- value as a hexadecimal string, which means that each byte is
-  -- represented as 2 characters.  Thus, 256 / 8 * 2 = 64.
-  -- We can use BINARY or CHAR here; BINARY simply has a different
-  -- definition for comparison/sorting than CHAR.
-  DECLARE true_password BINARY(64);
-  DECLARE our_password BINARY(64);
-  -- Salt will be 8 characters all the time, so we can make this 8.
-  DECLARE true_salt CHAR(8);
-
-  -- true salt and true password represent the user's accurate salt and 
-  -- hashed password
-  SELECT salt, password_hash INTO true_salt, true_password
-  FROM user_info
-  WHERE user_info.username = username;
-
-  -- if there is no true password, then the user must not exist in the 
-  -- user info table, and we return 0
-  IF true_password = NULL THEN 
-    return 0;
-  END IF;
-
-  SET our_password = UNHEX(SHA2(CONCAT(true_salt, password), 256));
-  IF (true_password = our_password) THEN 
-    IF admin_status = 1 THEN 
-    -- 2 indicates is admin user
-      return 2;
-    ELSE 
-      return 1;
-    END IF;
-  ELSE 
-    return 0;
-  END IF;
-END !
-DELIMITER ;
-
-
-CALL sp_add_user("admin_user", "adminpass", 1);  -- Admin
-CALL sp_add_user("normal_user", "userpass", 0);  -- Regular user
-
-
--- Create a procedure sp_change_password to generate a new salt and change the given
--- user's password to the given password (after salting and hashing)
-DELIMITER !
-CREATE PROCEDURE sp_change_password(requestor VARCHAR(20), username VARCHAR(20), new_password VARCHAR(20))
-BEGIN
-  DECLARE admin_status TINYINT(1);
-  DECLARE new_salt CHAR(8);
-  DECLARE new_password_hash BINARY(64);
-
-  -- QUESTIONABLE THING 
-  -- SELECT is_admin INTO admin_status FROM user_info 
-  -- WHERE user_info.username = requestor;
-
-  IF admin_status = 1 OR requestor = username THEN 
-    SET new_salt = make_salt(8);
-    SET new_password_hash = UNHEX(SHA2(CONCAT(new_salt, password), 256));
-    UPDATE user_info SET salt = new_salt, password_hash = new_password_hash 
-    WHERE user_info.username = username;
-  END IF;
-
-END !
-DELIMITER ;

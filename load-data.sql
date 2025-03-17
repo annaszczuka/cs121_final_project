@@ -27,7 +27,7 @@ CREATE TABLE staging_data (
 -- COPY staging_data FROM '/var/lib/mysql-files/cleaned_data.csv' DELIMITER ',' CSV HEADER;
 SET SESSION sql_mode = '';
 
-LOAD DATA INFILE '/var/lib/mysql-files/cleaned_data.csv'
+LOAD DATA INFILE '/var/lib/mysql-files/data.csv'
 INTO TABLE staging_data
 FIELDS TERMINATED BY ','
 LINES TERMINATED BY '\n'
