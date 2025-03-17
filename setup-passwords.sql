@@ -1,10 +1,12 @@
--- CS 121 24wi: Password Management (A6 and Final Project)
+-- CS 121 24wi: Password Management (Final Project modified from A6)
 -- We drop previously created items if they exist
 DROP FUNCTION IF EXISTS make_salt;
+DROP TABLE IF EXISTS client;
+DROP TABLE IF EXISTS admin;
 DROP TABLE IF EXISTS user_info;
 DROP PROCEDURE IF EXISTS sp_add_user;
 DROP FUNCTION IF EXISTS authenticate;
-DROP PROCEDURE IF EXISTS sp_change_password;
+DROP PROCEDURE IF EXISTS sp_change_pw;
 
 -- (Provided) This function generates a specified number of characters for using as a
 -- salt in passwords.
@@ -17,7 +19,7 @@ BEGIN
     -- Don't want to generate more than 20 characters of salt.
     SET num_chars = LEAST(20, num_chars);
 
-    -- Generate the salt.  Characters used are ASCII code 32 (space)
+    -- Generate the salt!  Characters used are ASCII code 32 (space)
     -- through 126 ('z').
     WHILE num_chars > 0 DO
         SET salt = CONCAT(salt, CHAR(32 + FLOOR(RAND() * 95)));
@@ -28,7 +30,6 @@ BEGIN
 END !
 DELIMITER ;
 
--- Provided (you may modify in your FP if you choose)
 -- This table holds information for authenticating users based on
 -- a password.  Passwords are not stored plaintext so that they
 -- cannot be used by people that shouldn't have them.
@@ -50,16 +51,16 @@ CREATE TABLE user_info (
     -- represented as 2 characters.  Thus, 256 / 8 * 2 = 64.
     -- We can use BINARY or CHAR here; BINARY simply has a different
     -- definition for comparison/sorting than CHAR.
-    password_hash BINARY(64) NOT NULL
+    password_hash BINARY(64) NOT NULL, 
 
-    -- -- is_admin is 0 if not admin and 1 if it is an admin
-    -- is_admin TINYINT(1) NOT NULL DEFAULT 0
+    -- is_admin is 0 if not admin and 1 if it is an admin
+    is_admin TINYINT NOT NULL DEFAULT 0
 );
 
 -- create the client table
 CREATE TABLE client (
     -- unique identifier for each client 
-    username          INT PRIMARY KEY,
+    username          VARCHAR(20) PRIMARY KEY,
     -- unique contact email for the client
     contact_email     VARCHAR(255) UNIQUE NOT NULL,
     -- indicates if client is a store manager
@@ -73,20 +74,29 @@ CREATE TABLE client (
 -- create the admin table
 CREATE TABLE admin (
     -- unique identifier for each admin
-    username         INT PRIMARY KEY, 
+    username         VARCHAR(20) PRIMARY KEY, 
     -- admin role in organization 
-    -- options: 
-    employee_type   ENUM('researcher', 'engineer', 'scientist') NOT NULL, 
+    -- options: researcher, engineer, scientist
+    employee_type  ENUM('researcher', 'engineer', 'scientist') NOT NULL, 
     FOREIGN KEY(username) REFERENCES user_info(username) 
     ON UPDATE CASCADE ON DELETE CASCADE
 );
-
 
 -- Adds a new user to the user_info table, using the specified password (max
 -- of 20 characters). Salts the password with a newly-generated salt value,
 -- and then the salt and hash values are both stored in the table.
 DELIMITER !
-CREATE PROCEDURE sp_add_user(new_username VARCHAR(20), password VARCHAR(20), admin_status TINYINT(1))
+CREATE PROCEDURE sp_add_user(new_username VARCHAR(20), password VARCHAR(20),
+admin_status TINYINT, first_name VARCHAR(50), last_name VARCHAR(50),
+-- only applicable for clients
+contact_email VARCHAR(255), 
+-- only applicable for clients
+is_store_manager TINYINT,
+-- only applicable for clients
+phone_number VARCHAR(20), 
+-- only applicable for admins
+employee_type ENUM('researcher', 'engineer', 'scientist')
+)
 BEGIN
   -- Salt will be 8 characters all the time, so we can make this 8.
   DECLARE salt CHAR(8);
@@ -96,17 +106,26 @@ BEGIN
   -- We can use BINARY or CHAR here; BINARY simply has a different
   -- definition for comparison/sorting than CHAR.
   DECLARE password_hash BINARY(64);
-  -- We call our make salt function
+
+  -- Generate salt and password hash
   SET salt = make_salt(8);
-  -- Our hashed password is a hashing applied to the combination of our 
-  -- previously generated salt and our password
   SET password_hash = UNHEX(SHA2(CONCAT(salt, password), 256));
-  -- check if username already exists, if not, then insert into user info
-  -- table
+
+  -- Ensure the username does not already exist
   IF NOT EXISTS (SELECT 1 FROM user_info WHERE username = new_username) THEN
-    INSERT INTO user_info (username, salt, password_hash) 
-    -- INSERT INTO user_info (username, salt, password_hash, is_admin) 
-    VALUES (new_username, salt, password_hash, admin_status);
+    -- Insert user into user_info table
+    INSERT INTO user_info (username, first_name, last_name, salt, password_hash, is_admin)
+    VALUES (new_username, first_name, last_name, salt, password_hash, admin_status);
+
+    -- If admin, insert into admin table
+    IF admin_status = 1 THEN
+      INSERT INTO admin (username, employee_type) 
+      VALUES (new_username, employee_type);
+    ELSE
+      -- If client, insert into client table
+      INSERT INTO client (username, contact_email, is_store_manager, phone_number) 
+      VALUES (new_username, contact_email, is_store_manager, phone_number);
+    END IF;
   END IF;
 END !
 DELIMITER ;
@@ -118,66 +137,54 @@ DELIMITER !
 CREATE FUNCTION authenticate(username VARCHAR(20), password VARCHAR(20))
 RETURNS TINYINT DETERMINISTIC
 BEGIN
-  -- We use SHA-2 with 256-bit hashes.  MySQL returns the hash
-  -- value as a hexadecimal string, which means that each byte is
-  -- represented as 2 characters.  Thus, 256 / 8 * 2 = 64.
-  -- We can use BINARY or CHAR here; BINARY simply has a different
-  -- definition for comparison/sorting than CHAR.
-  DECLARE true_password BINARY(64);
-  DECLARE our_password BINARY(64);
-  -- Salt will be 8 characters all the time, so we can make this 8.
-  DECLARE true_salt CHAR(8);
+  -- variables for storing salt and salted_password, and number of users
+  -- with the same hashed password 
+  DECLARE salt_entry CHAR(8); 
+  DECLARE salted_password BINARY(64);
+  DECLARE user_count INT;
 
-  -- true salt and true password represent the user's accurate salt and 
-  -- hashed password
-  SELECT salt, password_hash INTO true_salt, true_password
-  FROM user_info
-  WHERE user_info.username = username;
+  -- find salt of the specified user 
+  SELECT salt INTO salt_entry
+  FROM user_info 
+  WHERE user_info.username = username; 
 
-  -- if there is no true password, then the user must not exist in the 
-  -- user info table, and we return 0
-  IF true_password = NULL THEN 
-    return 0;
+  -- count the number of users where a generated hash from the inputted 
+  -- password is equal to the users actual hash
+  SELECT UNHEX(SHA2(CONCAT(salt_entry, password), 256)) INTO salted_password;
+  SELECT COUNT(*) INTO user_count 
+  FROM user_info 
+  WHERE user_info.password_hash = salted_password;
+
+  -- return whether or not a matching user was found
+  IF user_count = 1 THEN
+    RETURN 1;
+  ELSE
+    RETURN 0;
   END IF;
-
-  SET our_password = UNHEX(SHA2(CONCAT(true_salt, password), 256));
-  IF (true_password = our_password) THEN 
-    IF admin_status = 1 THEN 
-    -- 2 indicates is admin user
-      return 2;
-    ELSE 
-      return 1;
-    END IF;
-  ELSE 
-    return 0;
-  END IF;
+  
 END !
 DELIMITER ;
 
-
-CALL sp_add_user("admin_user", "adminpass", 1);  -- Admin
-CALL sp_add_user("normal_user", "userpass", 0);  -- Regular user
-
-
--- Create a procedure sp_change_password to generate a new salt and change the given
+-- a procedure sp_change_password to generate a new salt and change the given
 -- user's password to the given password (after salting and hashing)
 DELIMITER !
-CREATE PROCEDURE sp_change_password(requestor VARCHAR(20), username VARCHAR(20), new_password VARCHAR(20))
-BEGIN
-  DECLARE admin_status TINYINT(1);
-  DECLARE new_salt CHAR(8);
-  DECLARE new_password_hash BINARY(64);
+CREATE PROCEDURE sp_change_pw(
+    username VARCHAR(20),
+    new_password VARCHAR(20)
+)
+BEGIN 
+    -- Generate variables to store salt and salted_password
+    DECLARE salt CHAR(8); 
+    DECLARE salted_password BINARY(64);
 
-  -- QUESTIONABLE THING 
-  -- SELECT is_admin INTO admin_status FROM user_info 
-  -- WHERE user_info.username = requestor;
+    -- Generate salt and hash salt
+    SELECT make_salt(8) INTO salt;
+    SELECT UNHEX(SHA2(CONCAT(salt, new_password), 256)) INTO salted_password;
 
-  IF admin_status = 1 OR requestor = username THEN 
-    SET new_salt = make_salt(8);
-    SET new_password_hash = UNHEX(SHA2(CONCAT(new_salt, password), 256));
-    UPDATE user_info SET salt = new_salt, password_hash = new_password_hash 
+    -- Update a user's salt and password
+    UPDATE user_info
+    SET password_hash = salted_password, salt = salt
     WHERE user_info.username = username;
-  END IF;
 
 END !
 DELIMITER ;
