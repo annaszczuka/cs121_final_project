@@ -8,8 +8,8 @@ DROP PROCEDURE IF EXISTS sp_add_user;
 DROP FUNCTION IF EXISTS authenticate;
 DROP PROCEDURE IF EXISTS sp_change_pw;
 
--- (Provided) This function generates a specified number of characters for using as a
--- salt in passwords.
+-- (Provided) This function generates a specified number of characters 
+-- for using as a salt in passwords.
 DELIMITER !
 CREATE FUNCTION make_salt(num_chars INT)
 RETURNS VARCHAR(20) DETERMINISTIC
@@ -64,7 +64,7 @@ CREATE TABLE client (
     -- unique contact email for the client
     contact_email     VARCHAR(255) UNIQUE NOT NULL,
     -- indicates if client is a store manager
-    is_store_manager  BOOLEAN NOT NULL DEFAULT FALSE, 
+    is_store_manager  BOOLEAN NOT NULL DEFAULT 0, 
     -- optional phone number for source of client contact
     phone_number      VARCHAR(20), 
     FOREIGN KEY(username) REFERENCES user_info(username)
@@ -114,8 +114,10 @@ BEGIN
   -- Ensure the username does not already exist
   IF NOT EXISTS (SELECT 1 FROM user_info WHERE username = new_username) THEN
     -- Insert user into user_info table
-    INSERT INTO user_info (username, first_name, last_name, salt, password_hash, is_admin)
-    VALUES (new_username, first_name, last_name, salt, password_hash, admin_status);
+    INSERT INTO 
+    user_info(username, first_name, last_name, salt, password_hash, is_admin)
+    VALUES 
+    (new_username, first_name, last_name, salt, password_hash, admin_status);
 
     -- If admin, insert into admin table
     IF admin_status = 1 THEN
@@ -123,8 +125,9 @@ BEGIN
       VALUES (new_username, employee_type);
     ELSE
       -- If client, insert into client table
-      INSERT INTO client (username, contact_email, is_store_manager, phone_number) 
-      VALUES (new_username, contact_email, is_store_manager, phone_number);
+      INSERT INTO 
+      client(username, contact_email, is_store_manager, phone_number) 
+      VALUES(new_username, contact_email, is_store_manager, phone_number);
     END IF;
   END IF;
 END !
