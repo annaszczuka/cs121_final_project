@@ -7,8 +7,8 @@ CREATE TABLE staging_data (
     annual_income_usd FLOAT,
     product_category VARCHAR(255),
     product_price_usd FLOAT,
-    purchase_date DATE,  -- Fixed: Changed from TEXT to DATE
-    store_id INT,  -- Fixed: Changed from FLOAT to INT
+    purchase_date DATE, 
+    store_id INT, 
     store_location VARCHAR(255),
     payment_method VARCHAR(255),
     discount_percent INT,
@@ -18,11 +18,11 @@ CREATE TABLE staging_data (
     competitor_price_usd FLOAT,
     full_name VARCHAR(255),
     gender CHAR(1),
-    year_opened INT,  -- Fixed: Changed from FLOAT to INT
-    is_favorite INT,  -- Fixed: Changed from BOOLEAN to INT (0/1)
-    purchase_id VARCHAR(7),  -- Fixed: Matches CHAR(7)
-    product_id VARCHAR(7),  -- Fixed: Matches CHAR(7)
-    visit_date DATE,  -- Fixed: Changed from TEXT to DATE
+    year_opened INT,  
+    is_favorite INT,  
+    purchase_id VARCHAR(7), 
+    product_id VARCHAR(7), 
+    visit_date DATE, 
     purchased_product_price_usd INT
 );
 
@@ -65,7 +65,8 @@ SELECT DISTINCT
 FROM staging_data;
 
 -- Insert into inventory
-INSERT INTO inventory (product_id, store_id, store_location, qty, product_price_usd, product_cost_usd, competitor_price_usd)
+INSERT INTO inventory (product_id, store_id, store_location, 
+qty, product_price_usd, product_cost_usd, competitor_price_usd)
 SELECT DISTINCT
     product_id,
     store_id,
@@ -86,7 +87,9 @@ SELECT DISTINCT
 FROM staging_data;
 
 -- Insert into purchase (Fixed: Added store_location)
-INSERT INTO purchase (purchase_id, product_id, store_id, store_location, customer_id, payment_method, discount_percent, txn_date, purchased_product_price_usd)
+INSERT INTO purchase (purchase_id, product_id, store_id, store_location, 
+customer_id, payment_method, discount_percent, txn_date, 
+purchased_product_price_usd)
 SELECT DISTINCT
     purchase_id,
     product_id,
