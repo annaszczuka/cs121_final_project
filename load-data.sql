@@ -23,7 +23,7 @@ CREATE TABLE staging_data (
     purchase_id VARCHAR(7), 
     product_id VARCHAR(7), 
     visit_date DATE, 
-    purchased_product_price_usd INT
+    purchased_product_price_usd DECIMAL(8,2)
 );
 
 SET SESSION sql_mode = '';
@@ -86,24 +86,23 @@ SELECT DISTINCT
     foot_traffic
 FROM staging_data;
 
--- Insert into purchase (Fixed: Added store_location)
-INSERT INTO purchase (purchase_id, product_id, store_id, store_location, 
-customer_id, payment_method, discount_percent, txn_date, 
+-- Insert into purchase 
+INSERT INTO purchase (purchase_id, product_id, store_id, 
+customer_id, payment_method, discount_percent, txn_date, store_location,
 purchased_product_price_usd)
 SELECT DISTINCT
     purchase_id,
     product_id,
     store_id,
-    store_location,
     customer_id,
     payment_method,
     discount_percent,
     purchase_date,
-    product_price_usd
+    store_location,
+    purchased_product_price_usd
 FROM staging_data
 WHERE purchase_id IS NOT NULL;
 
--- Insert into customer_visits (Fixed: Handled BOOLEAN properly)
 INSERT INTO customer_visits (customer_id, store_id, store_location, is_favorite)
 SELECT DISTINCT
     customer_id,
