@@ -23,7 +23,7 @@ CREATE TABLE staging_data (
     purchase_id VARCHAR(7), 
     product_id VARCHAR(7), 
     visit_date DATE, 
-    purchased_product_price_usd DECIMAL(8,2)
+    purchased_product_price_usd NUMERIC(6,2)
 );
 
 SET SESSION sql_mode = '';

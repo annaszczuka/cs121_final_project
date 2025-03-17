@@ -112,7 +112,7 @@ CREATE TABLE purchase (
     -- city store is located in, all stores are located in U.S.A
     store_location   VARCHAR(255),
     -- price of the purchased product before the discount
-    purchased_product_price_usd DECIMAL(8, 2),
+    purchased_product_price_usd NUMERIC(6, 2),
     PRIMARY KEY(purchase_id), 
     FOREIGN KEY(product_id) 
     REFERENCES product(product_id)
