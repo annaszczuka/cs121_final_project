@@ -618,3 +618,7 @@ if __name__ == '__main__':
     # about to execute a query with cursor.execute(<sqlquery>)
     conn = get_conn()
     main()
+
+
+
+ SELECT product_id, product_category FROM staging_data WHERE product_id IN (SELECT product_id FROM staging_data GROUP BY product_id HAVING COUNT(DISTINCT product_category) > 1) ORDER BY product_id, product_category;
