@@ -35,24 +35,6 @@ DEBUG = True
         
 import getpass  # Secure password input
 
-# def get_conn():
-#     """Prompt the user for their MySQL credentials at runtime."""
-#     username = input("Enter MySQL username: ")  # Ask for username
-#     password = getpass.getpass("Enter MySQL password: ")  # Hide password input
-
-#     try:
-#         conn = mysql.connector.connect(
-#             host='localhost',
-#             user=username,
-#             password=password,
-#             database='retaildb'
-#         )
-#         print(f"Successfully connected as {username}")
-#         return conn
-#     except mysql.connector.Error as err:
-#         print("Error:", err)
-#         exit(1)
-
 # conn = get_conn()  # Call function to log in dynamically
 def get_conn():
      """"
@@ -97,10 +79,13 @@ def count_gender_health_beauty(conn):
     """
     cursor = conn.cursor()
     query = """
-        SELECT c.gender, COUNT(*) AS purchase_count
+        SELECT c.gender, 
+            COUNT(*) AS purchase_count
         FROM customer c
-        JOIN purchase p ON c.customer_id = p.customer_id
-        JOIN product pr ON p.product_id = pr.product_id
+        JOIN purchase p 
+            ON c.customer_id = p.customer_id
+        JOIN product pr 
+            ON p.product_id = pr.product_id
         WHERE pr.product_category = 'Health & Beauty'
         GROUP BY c.gender;
     """
@@ -123,10 +108,13 @@ def most_popular_payment_method(conn):
     """
     cursor = conn.cursor()
     query = """
-        SELECT p.store_id, p.payment_method, COUNT(*) AS usage_count
+        SELECT p.store_id, 
+            p.store_location, 
+            p.payment_method, 
+            COUNT(*) AS usage_count
         FROM purchase p
-        GROUP BY p.store_id, p.payment_method
-        ORDER BY p.store_id, usage_count DESC;
+        GROUP BY p.store_id, p.store_location, p.payment_method
+        ORDER BY p.store_id, p.store_location, usage_count DESC;
     """
     try:
         cursor.execute(query)
@@ -156,12 +144,16 @@ def most_common_store_location_per_age_group(conn):
                 WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
                 ELSE '50+' 
             END AS age_group,
+            s.store_id, 
             s.store_location,
             COUNT(*) AS visit_count
         FROM customer_visits cv
-        JOIN customer c ON cv.customer_id = c.customer_id
-        JOIN store s ON cv.store_id = s.store_id
-        GROUP BY age_group, s.store_location
+        JOIN customer c 
+            ON cv.customer_id = c.customer_id
+        JOIN store s 
+            ON cv.store_id = s.store_id 
+            AND cv.store_location = s.store_location
+        GROUP BY age_group, s.store_id, s.store_location
         ORDER BY age_group, visit_count DESC;
     """
     try:
@@ -193,10 +185,10 @@ def get_age_stats(conn):
                 ELSE '50+' 
             END AS age_group,
             COUNT(p.purchase_id) AS total_purchases,
-            AVG(i.product_price_usd) AS avg_spent_per_purchase
+            AVG(p.purchased_product_price_usd) AS avg_spent_per_purchase
         FROM customer c
-        JOIN purchase p ON c.customer_id = p.customer_id
-        JOIN inventory i ON p.product_id = i.product_id
+        JOIN purchase p 
+            ON c.customer_id = p.customer_id
         GROUP BY age_group
         ORDER BY age_group;
     """
@@ -228,11 +220,11 @@ def get_gender_stats(conn):
 
     query = """
         SELECT c.gender, 
-               COUNT(p.purchase_id) AS total_purchases,
-               AVG(i.product_price_usd) AS avg_spent_per_transaction
+                COUNT(p.purchase_id) AS total_purchases,
+                AVG(p.purchased_product_price_usd) AS avg_spent_per_transaction
         FROM customer c
-        JOIN purchase p ON c.customer_id = p.customer_id
-        JOIN inventory i ON p.product_id = i.product_id
+        JOIN purchase p 
+            ON c.customer_id = p.customer_id
         GROUP BY c.gender;
     """
     try:
