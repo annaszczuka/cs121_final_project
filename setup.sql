@@ -1,5 +1,5 @@
 -- clean up old tables
--- must drop tables with foreign keys first
+-- must drop tables with foreign keys first 
 -- due to referential integrity constraints
 DROP TABLE IF EXISTS customer_visits;
 DROP TABLE IF EXISTS purchase;
@@ -8,7 +8,9 @@ DROP TABLE IF EXISTS inventory;
 DROP TABLE IF EXISTS product;
 DROP TABLE IF EXISTS customer;
 DROP TABLE IF EXISTS store;
-DROP VIEW IF EXISTS sales_summary_by_age_group;
+DROP TABLE IF EXISTS client;
+DROP TABLE IF EXISTS admin;
+DROP VIEW sales_summary_by_age_group;
 
 -- represents customers uniquely identified by customer_id
 -- requires all non-null values
@@ -24,7 +26,8 @@ CREATE TABLE customer (
     -- first and last name of client 
     full_name          VARCHAR(255) NOT NULL, 
     PRIMARY KEY(customer_id),
-    CHECK(gender IN ('M', 'F', 'X'))
+    CHECK(gender IN ('M', 'F', 'X')), 
+    CHECK(age >= 0 AND age < 100)
 );
 
 -- represents stores uniquely identified by store_id and store_location
@@ -112,7 +115,7 @@ CREATE TABLE purchase (
     -- city store is located in, all stores are located in U.S.A
     store_location   VARCHAR(255),
     -- price of the purchased product before the discount
-    purchased_product_price_usd NUMERIC(6, 2),
+    purchased_product_price_usd NUMERIC(6, 2) NOT NULL, 
     PRIMARY KEY(purchase_id), 
     FOREIGN KEY(product_id) 
     REFERENCES product(product_id)
@@ -133,7 +136,7 @@ CREATE TABLE customer_visits (
     store_id        INT,
     store_location  VARCHAR(255),
     -- indicates if a particular store is a customer's favorite store 
-    is_favorite     TINYINT NOT NULL,
+    is_favorite     BOOLEAN NOT NULL,
     PRIMARY KEY(customer_id, store_id, store_location),
     FOREIGN KEY(store_id, store_location) 
     REFERENCES store(store_id, store_location)
@@ -175,3 +178,31 @@ JOIN product ON purchase.product_id = product.product_id
 JOIN customer ON purchase.customer_id = customer.customer_id
 GROUP BY product.product_category, age_range
 ORDER BY product.product_category, age_range;
+
+
+-- create the client table
+CREATE TABLE client (
+    -- unique identifier for each client 
+    username          VARCHAR(20) PRIMARY KEY,
+    -- unique contact email for the client
+    contact_email     VARCHAR(255) UNIQUE NOT NULL,
+    -- indicates if client is a store manager
+    is_store_manager  BOOLEAN NOT NULL DEFAULT 0, 
+    -- optional phone number for source of client contact
+    phone_number      VARCHAR(20), 
+    FOREIGN KEY(username) REFERENCES user_info(username)
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- create the admin table
+CREATE TABLE admin (
+    -- unique identifier for each admin
+    username         VARCHAR(20) PRIMARY KEY, 
+    -- admin role in organization 
+    -- options: researcher, engineer, scientist
+    employee_type  ENUM('researcher', 'engineer', 'maintenance') NOT NULL, 
+    FOREIGN KEY(username) REFERENCES user_info(username) 
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+SET FOREIGN_KEY_CHECKS = 1;
