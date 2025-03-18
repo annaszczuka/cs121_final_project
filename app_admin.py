@@ -222,7 +222,6 @@ def delete_transaction_record(conn):
     finally:
         cursor.close()
 
-
 def view_store_performance(conn):
     """
     Displays store performance reports including revenue, total transactions,
@@ -254,6 +253,40 @@ def view_store_performance(conn):
         for row in results:
             print(f"{row[0]} | {row[1]} | {row[2]} | {row[3]:.2f} | {row[4]:.2f}")
         print("---------------------------------------------------------------")
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
+def delete_client_account(conn):
+    """
+    Allows the admin to delete a client account
+    """
+    cursor = conn.cursor()
+    
+    username = input("\nEnter the username to delete: ").strip()
+    
+    try:
+        cursor.execute("SELECT COUNT(*) FROM user_info WHERE username = %s", (username,))
+        result = cursor.fetchone()
+        
+        if result is None:
+            print("Error: User does not exist.")
+            return
+        
+        cursor.execute("SELECT is_admin FROM user_info WHERE username = %s", (username,))
+        result = cursor.fetchone()
+        
+        is_admin = result[0]  # Fetch is_admin value
+        print(is_admin)
+        if is_admin == 1:
+            print("Error: Cannot delete an admin account.")
+            return
+        
+        # Delete the purchase record
+        cursor.execute("DELETE FROM user_info WHERE username = %s", (username,))
+        conn.commit()
+        print("Client account deleted successfully.")
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
@@ -298,35 +331,36 @@ def create_account_admin(conn):
 # support any prompt functionality to conditionally login to the sql database)
 
 def login_interface(conn):
-    cursor = conn.cursor()
-    print("Welcome! Please log in as an administrator.")
-    username = input("Enter username: ")
-    password = input("Enter password: ")
-    
-    query = """
-        SELECT authenticate(%s, %s)
-    """
-    
-    try:
-        cursor.execute(query, (username, password))
-        result = cursor.fetchone()
+    while True:
+        cursor = conn.cursor()
+        print("Welcome! Please log in as an administrator.")
+        username = input("Enter username: ")
+        password = input("Enter password: ")
         
-        if result and result[0] == 2:
-            print("Admin login successful!")
-            show_admin_options()
-            # return 2  # Admin user
-        elif result and result[0] == 1:
-            print("You are registered as a client. Please use the client interface.")
-            # return 1  # Regular user
-        else:
-            print("Invalid username or password.")
-            # return 0  # Authentication failed
+        query = """
+            SELECT authenticate(%s, %s)
+        """
+        
+        try:
+            cursor.execute(query, (username, password))
+            result = cursor.fetchone()
+            
+            if result and result[0] == 2:
+                print("Admin login successful!")
+                show_admin_options()
+                # return 2  # Admin user
+            elif result and result[0] == 1:
+                print("You are registered as a client. Please use the client interface.")
+                # return 1  # Regular user
+            else:
+                print("Invalid username or password.")
+                # return 0  # Authentication failed
 
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
-
+        except mysql.connector.Error as err:
+            sys.stderr.write(f"Error: {err}\n")
+        finally:
+            cursor.close()
+        input("\nPress Enter to try logging in again...")
 
 # ----------------------------------------------------------------------
 # Command-Line Functionality
@@ -345,27 +379,32 @@ def show_admin_options():
     # Updating a customer's information could be a spot for some client admin interaction.
     # There are also specific statistics only admins can view such as store performance reports,
     # as if competitors get access to this information, that might cause issues as that could be private info.
-    print('What would you like to do? ')
-    print('  (1) - Add a New Transaction')
-    print('  (2) - Update a Customer\'s Information')
-    print('  (3) - Delete a Transaction Record')
-    print('  (4) - View Store Performance Reports')
-    print('  (q) - quit')
-    print()
-    ans = input('Enter an option: ').lower()
-    if ans == '1':
-        add_new_transaction()
-    elif ans == '2':
-        update_customer_info()
-    elif ans == '3':
-        delete_transaction_record()
-    elif ans == '4':
-        view_store_performance()
-    elif ans == 'q':
-        quit_ui()
-    else:
-        print("Invalid option. Please try again.")
-
+    while True:
+        print('What would you like to do? ')
+        print('  (1) - Add a New Transaction')
+        print('  (2) - Update a Customer\'s Information')
+        print('  (3) - Delete a Transaction Record')
+        print('  (4) - View Store Performance Reports')
+        print('  (5) - Delete a Client Account')
+        print('  (q) - quit')
+        print()
+        ans = input('Enter an option: ').lower()
+        if ans == '1':
+            add_new_transaction(conn)
+        elif ans == '2':
+            update_customer_info(conn)
+        elif ans == '3':
+            delete_transaction_record(conn)
+        elif ans == '4': 
+            view_store_performance(conn)
+        elif ans == '5':
+            delete_client_account(conn)
+        elif ans == 'q':
+            quit_ui()
+        else:
+            print("Invalid option. Please try again.")
+            
+        input("\nPress Enter to return to the Admin Menu...")
 
 def quit_ui():
     """
@@ -394,9 +433,9 @@ def main(conn):
             create_account_admin(conn)
         elif choice == '2':
             login_interface(conn)
-        else:
+        elif choice == '3':
             break
-
+        input("\nPress Enter to return to the main menu...")
 
 if __name__ == '__main__':
     # This conn is a global object that other functions can access.
@@ -405,3 +444,4 @@ if __name__ == '__main__':
     conn = get_conn()
     main(conn)
     conn.close()
+    
