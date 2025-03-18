@@ -17,7 +17,6 @@ handling.
 The user interacts with the program via a menu-driven interface that allows them to select queries and retrieve data in
 meaningful ways.
 ************************************************************************************************************************
-
 """
 
 import sys  # to print error messages to sys.stderr
@@ -32,39 +31,29 @@ DEBUG = True
 
 # ----------------------------------------------------------------------
 # SQL Utility Functions
-# ----------------------------------------------------------------------
+# # ----------------------------------------------------------------------
+        
+import getpass  # Secure password input
+
 def get_conn():
-    """"
-    Returns a connected MySQL connector instance, if connection is successful.
-    If unsuccessful, exits.
-    """
+    """Prompt the user for their MySQL credentials at runtime."""
+    username = input("Enter MySQL username: ")  # Ask for username
+    password = getpass.getpass("Enter MySQL password: ")  # Hide password input
+
     try:
         conn = mysql.connector.connect(
-          host='localhost',
-          user='appadmin',
-          # Find port in MAMP or MySQL Workbench GUI or with
-          # SHOW VARIABLES WHERE variable_name LIKE 'port';
-          port='3306',  # this may change!
-          password='retailpwd', # adminpw
-          database='retaildb'
+            host='localhost',
+            user=username,
+            password=password,
+            database='retaildb'
         )
-        print('Successfully connected.')
+        print(f"Successfully connected as {username}")
         return conn
     except mysql.connector.Error as err:
-        # Remember that this is specific to _database_ users, not
-        # application users. So is probably irrelevant to a client in your
-        # simulated program. Their user information would be in a users table
-        # specific to your database; hence the DEBUG use.
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR and DEBUG:
-            sys.stderr('Incorrect username or password when connecting to DB.')
-        elif err.errno == errorcode.ER_BAD_DB_ERROR and DEBUG:
-            sys.stderr('Database does not exist.')
-        elif DEBUG:
-            sys.stderr(err)
-        else:
-            # A fine catchall client-facing message.
-            sys.stderr('An error occurred, please contact the administrator.')
-        sys.exit(1)
+        print("Error:", err)
+        exit(1)
+
+# conn = get_conn()  # Call function to log in dynamically
 
 
 # ----------------------------------------------------------------------
@@ -72,11 +61,10 @@ def get_conn():
 # ----------------------------------------------------------------------
 
 
-def count_gender_health_beauty():
+def count_gender_health_beauty(conn):
     """
     Counts the number of male, female, and non-binary customers who purchased Health and Beauty products.
     """
-    conn = get_conn()
     cursor = conn.cursor()
     query = """
         SELECT c.gender, COUNT(*) AS purchase_count
@@ -99,11 +87,10 @@ def count_gender_health_beauty():
         conn.close()
 
 
-def most_popular_payment_method():
+def most_popular_payment_method(conn):
     """
     Finds the most commonly used payment method for each store.
     """
-    conn = get_conn()
     cursor = conn.cursor()
     query = """
         SELECT p.store_id, p.payment_method, COUNT(*) AS usage_count
@@ -124,11 +111,10 @@ def most_popular_payment_method():
         conn.close()
 
 
-def most_common_store_location_per_age_group():
+def most_common_store_location_per_age_group(conn):
     """
     Determines the most common store location visited by different age groups.
     """
-    conn = get_conn()
     cursor = conn.cursor()
     # Specify age group categories up to 50 and then just classify as above 50 years. Assume customers
     # must be at least 18 (adult) to make a purchase.
@@ -161,12 +147,11 @@ def most_common_store_location_per_age_group():
         conn.close()
 
 
-def get_age_stats():
+def get_age_stats(conn):
     """
     Displays a table of retail statistics grouped by age.
     After viewing the table, the user can ask further questions related to age or gender statistics.
     """
-    conn = get_conn()
     cursor = conn.cursor()
 
     query = """
@@ -205,11 +190,10 @@ def get_age_stats():
         conn.close()
 
 
-def get_gender_stats():
+def get_gender_stats(conn):
     """
     Displays statistics based on gender, showing how different genders shop.
     """
-    conn = get_conn()
     cursor = conn.cursor()
 
     query = """
@@ -240,11 +224,10 @@ def get_gender_stats():
         conn.close()
 
 
-def get_more_age_analysis():
+def get_more_age_analysis(conn):
     """
     Allows deeper age-related analysis, such as finding the most common products purchased per age group.
     """
-    conn = get_conn()
     cursor = conn.cursor()
 
     query = """
@@ -270,11 +253,10 @@ def get_more_age_analysis():
 # ----------------------------------------------------------------------
 
 
-def add_new_transaction():
+def add_new_transaction(conn):
     """
     Allows an admin to add a new transaction manually into the database.
     """
-    conn = get_conn()
     cursor = conn.cursor()
 
     print("\nAdding a New Transaction")
@@ -330,11 +312,10 @@ def add_new_transaction():
         conn.close()
 
 
-def update_customer_info():
+def update_customer_info(conn):
     """
     Allows the admin to update a customer's information.
     """
-    conn = get_conn()
     cursor = conn.cursor()
 
     customer_id = input("\nEnter Customer ID to update: ").strip()
@@ -393,11 +374,10 @@ def update_customer_info():
         conn.close()
 
 
-def delete_transaction_record():
+def delete_transaction_record(conn):
     """
     Allows the admin to delete a transaction record.
     """
-    conn = get_conn()
     cursor = conn.cursor()
 
     purchase_id = input("\nEnter the Purchase ID to delete: ").strip()
@@ -420,12 +400,11 @@ def delete_transaction_record():
         conn.close()
 
 
-def view_store_performance():
+def view_store_performance(conn):
     """
     Displays store performance reports including revenue, total transactions,
     and average foot traffic per store.
     """
-    conn = get_conn()
     cursor = conn.cursor()
 
     # Query to display the store performance reports including revenue, total transactions,
@@ -621,4 +600,4 @@ if __name__ == '__main__':
 
 
 
- SELECT product_id, product_category FROM staging_data WHERE product_id IN (SELECT product_id FROM staging_data GROUP BY product_id HAVING COUNT(DISTINCT product_category) > 1) ORDER BY product_id, product_category;
+#  SELECT product_id, product_category FROM staging_data WHERE product_id IN (SELECT product_id FROM staging_data GROUP BY product_id HAVING COUNT(DISTINCT product_category) > 1) ORDER BY product_id, product_category;
