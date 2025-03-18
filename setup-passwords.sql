@@ -77,7 +77,7 @@ CREATE TABLE admin (
     username         VARCHAR(20) PRIMARY KEY, 
     -- admin role in organization 
     -- options: researcher, engineer, scientist
-    employee_type  ENUM('researcher', 'engineer', 'scientist') NOT NULL, 
+    employee_type  ENUM('researcher', 'engineer', 'maintenance') NOT NULL, 
     FOREIGN KEY(username) REFERENCES user_info(username) 
     ON UPDATE CASCADE ON DELETE CASCADE
 );
@@ -86,7 +86,7 @@ CREATE TABLE admin (
 -- of 20 characters). Salts the password with a newly-generated salt value,
 -- and then the salt and hash values are both stored in the table.
 DELIMITER !
-CREATE PROCEDURE sp_add_user(new_username VARCHAR(20), password VARCHAR(20),
+CREATE PROCEDURE sp_add_user(new_username VARCHAR(20), new_password VARCHAR(20),
 admin_status TINYINT, first_name VARCHAR(50), last_name VARCHAR(50),
 -- only applicable for clients
 contact_email VARCHAR(255), 
@@ -95,7 +95,7 @@ is_store_manager TINYINT,
 -- only applicable for clients
 phone_number VARCHAR(20), 
 -- only applicable for admins
-employee_type ENUM('researcher', 'engineer', 'scientist')
+employee_type ENUM('researcher', 'engineer', 'maintenance')
 )
 BEGIN
   -- Salt will be 8 characters all the time, so we can make this 8.
@@ -109,7 +109,7 @@ BEGIN
 
   -- Generate salt and password hash
   SET salt = make_salt(8);
-  SET password_hash = UNHEX(SHA2(CONCAT(salt, password), 256));
+  SET password_hash = UNHEX(SHA2(CONCAT(salt, new_password), 256));
 
   -- Ensure the username does not already exist
   IF NOT EXISTS (SELECT 1 FROM user_info WHERE username = new_username) THEN
@@ -133,11 +133,12 @@ BEGIN
 END !
 DELIMITER ;
 
+
 -- Authenticates the specified username and password against the data
 -- in the user_info table.  Returns 1 if the user appears in the table, and the
 -- specified password hashes to the value for the user. Otherwise returns 0.
 DELIMITER !
-CREATE FUNCTION authenticate(username VARCHAR(20), password VARCHAR(20))
+CREATE FUNCTION authenticate(username VARCHAR(20), new_password VARCHAR(20))
 RETURNS TINYINT DETERMINISTIC
 BEGIN
   -- variables for storing salt and salted_password, and number of users
@@ -145,21 +146,29 @@ BEGIN
   DECLARE salt_entry CHAR(8); 
   DECLARE salted_password BINARY(64);
   DECLARE user_count INT;
+  DECLARE admin_status TINYINT;
 
   -- find salt of the specified user 
-  SELECT salt INTO salt_entry
+  SELECT salt, is_admin INTO salt_entry, admin_status
   FROM user_info 
   WHERE user_info.username = username; 
 
   -- count the number of users where a generated hash from the inputted 
   -- password is equal to the users actual hash
-  SELECT UNHEX(SHA2(CONCAT(salt_entry, password), 256)) INTO salted_password;
+  SELECT UNHEX(SHA2(CONCAT(salt_entry, new_password), 256)) INTO salted_password;
   SELECT COUNT(*) INTO user_count 
   FROM user_info 
   WHERE user_info.password_hash = salted_password;
 
   -- return whether or not a matching user was found
   IF user_count = 1 THEN
+      IF admin_status = 1 THEN 
+        -- 2 indicates is admin user
+        return 2;
+      ELSE 
+        -- regular user
+        return 1;
+      END IF;
     RETURN 1;
   ELSE
     RETURN 0;
