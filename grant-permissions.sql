@@ -1,23 +1,15 @@
-DROP USER IF EXISTS 'sreeyur_admin'@'localhost';
-DROP USER IF EXISTS 'aszszcuka_admin'@'localhost';
-DROP USER IF EXISTS 'ewang_admin'@'localhost';
-DROP USER IF EXISTS 'store_manager'@'localhost';
+DROP USER IF EXISTS 'admin'@'localhost';
+DROP USER IF EXISTS 'client'@'localhost';
 
 -- Create Admin Users
-CREATE USER 'sreeyur_admin'@'localhost' IDENTIFIED BY 'admin1';
-CREATE USER 'aszszcuka_admin'@'localhost' IDENTIFIED BY 'admin2';
-CREATE USER 'ewang_admin'@'localhost' IDENTIFIED BY 'admin3';
-
--- Create Client User
-CREATE USER 'store_manager'@'localhost' IDENTIFIED BY 'client_manager';
+CREATE USER 'admin'@'localhost' IDENTIFIED BY 'admin_pw';
+CREATE USER 'client'@'localhost' IDENTIFIED BY 'client_pw';
 
 -- Grant Admin Privileges
-GRANT ALL PRIVILEGES ON retaildb.* TO 'sreeyur_admin'@'localhost';
-GRANT ALL PRIVILEGES ON retaildb.* TO 'aszszcuka_admin'@'localhost';
-GRANT ALL PRIVILEGES ON retaildb.* TO 'ewang_admin'@'localhost';
+GRANT ALL PRIVILEGES ON retaildb.* TO 'admin'@'localhost';
 
 -- Grant Client (Read-Only) Privileges
-GRANT SELECT ON retaildb.* TO 'store_manager'@'localhost';
+GRANT SELECT ON retaildb.* TO 'client'@'localhost';
 
 -- Apply Changes
 FLUSH PRIVILEGES;
