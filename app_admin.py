@@ -232,15 +232,33 @@ def view_store_performance(conn):
     # Query to display the store performance reports including revenue, total transactions,
     # and average foot traffic per store.
     query = """
-        SELECT s.store_id, s.store_location, 
-               COUNT(p.purchase_id) AS total_transactions,
-               SUM(i.product_price_usd) AS total_revenue,
-               AVG(pop.foot_traffic) AS avg_foot_traffic
+        WITH purchase_summary AS (
+            SELECT store_id,
+                store_location,
+                COUNT(*) AS total_transactions,
+                SUM(purchased_product_price_usd) AS total_revenue
+            FROM purchase
+            GROUP BY store_id, store_location
+        ),
+        popularity_summary AS (
+            SELECT store_id,
+                store_location,
+                AVG(foot_traffic) AS avg_foot_traffic
+            FROM popularity
+            GROUP BY store_id, store_location
+        )
+        SELECT s.store_id, 
+            s.store_location,
+            COALESCE(p.total_transactions, 0) AS total_transactions,
+            COALESCE(p.total_revenue, 0)      AS total_revenue,
+            COALESCE(pop.avg_foot_traffic, 0) AS avg_foot_traffic
         FROM store s
-        JOIN purchase p ON s.store_id = p.store_id
-        JOIN inventory i ON p.product_id = i.product_id
-        JOIN popularity pop ON s.store_id = pop.store_id
-        GROUP BY s.store_id, s.store_location;
+        LEFT JOIN purchase_summary p 
+            ON s.store_id = p.store_id 
+            AND s.store_location = p.store_location
+        LEFT JOIN popularity_summary pop
+            ON s.store_id = pop.store_id
+            AND s.store_location = pop.store_location;
     """
 
     try:
