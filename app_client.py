@@ -317,34 +317,36 @@ def create_account_client(conn):
 # support any prompt functionality to conditionally login to the sql database)
     
 def login_interface(conn):
-    cursor = conn.cursor()
-    print("Welcome! Please log in as a client.")
-    username = input("Enter username: ")
-    password = input("Enter password: ")
-    
-    query = """
-        SELECT authenticate(%s, %s)
-    """
-    
-    try:
-        cursor.execute(query, (username, password))
-        result = cursor.fetchone()
+    while True:
+        cursor = conn.cursor()
+        print("Welcome! Please log in as a client.")
+        username = input("Enter username: ")
+        password = input("Enter password: ")
         
-        if result and result[0] == 1:
-            print("Client login successful!")
-            show_client_options()
-            # return 2  # Admin user
-        elif result and result[0] == 2:
-            print("You are registered as an admin. Please use the admin interface.")
-            # return 1  # Regular user
-        else:
-            print("Invalid username or password.")
-            # return 0  # Authentication failed
+        query = """
+            SELECT authenticate(%s, %s)
+        """
+        
+        try:
+            cursor.execute(query, (username, password))
+            result = cursor.fetchone()
+            
+            if result and result[0] == 1:
+                print("Client login successful!")
+                show_client_options()
+                # return 2  # Admin user
+            elif result and result[0] == 2:
+                print("You are registered as an admin. Please use the admin interface.")
+                # return 1  # Regular user
+            else:
+                print("Invalid username or password.")
+                # return 0  # Authentication failed
 
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
+        except mysql.connector.Error as err:
+            sys.stderr.write(f"Error: {err}\n")
+        finally:
+            cursor.close()
+        input("\nPress Enter to try logging in again...")
 
 
 
@@ -364,29 +366,31 @@ def show_client_options():
 
     # Below are some examples of questions the user can ask. We plan on making C, D, and E more broad categories
     # to make it easier to conduct robust analysis of data using this interface.
-    print('What would you like to do to explore retail data? ')
-    print('  (A) - Get Age Statistics')
-    print('  (B) - Get Gender Statistics')
-    print('  (C) - Count Health & Beauty Purchases by Gender')
-    print('  (D) - Find Most Popular Payment Methods Per Store')
-    print('  (E) - Determine Most Common Store Locations for Each Age Group') # location stats
-    print('  (q) - quit')
-    print()
-    ans = input('Enter an option: ').lower()
-    if ans == 'a':
-        get_age_stats()
-    elif ans == 'b':
-        get_gender_stats()
-    if ans == 'c':
-        count_gender_health_beauty()
-    elif ans == 'd':
-        most_popular_payment_method()
-    elif ans == 'e':
-        most_common_store_location_per_age_group()
-    elif ans == 'q':
-        quit_ui()
-    else:
-        print("Invalid option. Please try again.")
+    while True:
+        print('What would you like to do to explore retail data? ')
+        print('  (A) - Get Age Statistics')
+        print('  (B) - Get Gender Statistics')
+        print('  (C) - Count Health & Beauty Purchases by Gender')
+        print('  (D) - Find Most Popular Payment Methods Per Store')
+        print('  (E) - Determine Most Common Store Locations for Each Age Group') # location stats
+        print('  (q) - quit')
+        print()
+        ans = input('Enter an option: ').lower()
+        if ans == 'a':
+            get_age_stats()
+        elif ans == 'b':
+            get_gender_stats()
+        if ans == 'c':
+            count_gender_health_beauty()
+        elif ans == 'd':
+            most_popular_payment_method()
+        elif ans == 'e':
+            most_common_store_location_per_age_group()
+        elif ans == 'q':
+            quit_ui()
+        else:
+            print("Invalid option. Please try again.")
+        input("\nPress Enter to return to the Client Menu...")
 
 
 def data_science_questions():
@@ -438,6 +442,7 @@ def data_science_questions():
             quit_ui()
         else:
             print("Invalid option. Please try again.")
+        print("\nPress enter to return to the menu")
 
 def quit_ui():
     """
@@ -466,8 +471,9 @@ def main(conn):
             create_account_client(conn)
         elif choice == '2':
             login_interface(conn)
-        else:
+        elif choice == '3':
             break
+        input("\nPress Enter to return to the main menu...")
 
 
 if __name__ == '__main__':
