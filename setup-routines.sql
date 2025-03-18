@@ -1,11 +1,12 @@
 -- drop existing functions, procedures, and triggers
+-- setup passwords needs to be run before this
 DROP FUNCTION IF EXISTS get_contact_email;
 DROP FUNCTION IF EXISTS get_sale_price; 
 DROP FUNCTION IF EXISTS store_count; 
 DROP FUNCTION IF EXISTS store_score; 
 DROP TABLE IF EXISTS mv_store_sales_stats;
 DROP PROCEDURE IF EXISTS sp_store_stat_new_sale;
-DROP TRIGGER IF EXISTS trg_store_sale_insert; 
+DROP TRIGGER trg_store_sale_insert; 
 DROP PROCEDURE IF EXISTS update_inventory;
 
 -- Returns a VARCHAR email address for an administrator and a client 
@@ -15,24 +16,24 @@ DROP PROCEDURE IF EXISTS update_inventory;
 DELIMITER !
 CREATE FUNCTION get_contact_email(
     -- input: user's username 
-    username VARCHAR(30),
+    username VARCHAR(30)
     -- input: flag whether user is admin or client
-    is_admin TINYINT
+    -- is_admin TINYINT
 ) RETURNS VARCHAR(254) DETERMINISTIC -- email adddress can't exceed 254 char
 BEGIN
     -- store resulting email 
     DECLARE user_email VARCHAR(254);
-
-    IF is_admin = 1 THEN
-        -- in case of admin, append fixed domain to username to 
-        -- get employee email 
-        SET user_email = CONCAT(username, '@retail_stats.com');
-    ELSE
-        -- in case of client, query email
-        SELECT contact_email INTO user_email
-        FROM client 
-        WHERE client.username = username;
-    END IF;
+    SET user_email = CONCAT(username, '@retail_stats.com');
+    -- IF is_admin = 1 THEN
+    --     -- in case of admin, append fixed domain to username to 
+    --     -- get employee email 
+    --     SET user_email = CONCAT(username, '@retail_stats.com');
+    -- ELSE
+    --     -- in case of client, query email
+    --     SELECT contact_email INTO user_email
+    --     FROM client 
+    --     WHERE client.username = username;
+    -- END IF;
 
     RETURN user_email;
 END !
@@ -41,11 +42,11 @@ DELIMITER ;
 
 -- test FUNCTION get_contact_email for an admin user
 -- expected output: jwoodwell@retail_stats.com
-SELECT get_contact_email('jwoodwell', 1) AS email;
+SELECT get_contact_email('jwoodwell') AS email;
 
 -- test FUNCTION get_contact_email for a client user
 -- expected output: cbrown@gmail.com
-SELECT get_contact_email('cbrown', 0) AS email;
+SELECT get_contact_email('cbrown') AS email;
 
 
 -- Calculates the numbers of stores that a store chain (defined by store_id)
@@ -263,25 +264,25 @@ END !
 DELIMITER ;
 
 -- Insert data into tables to test trigger 
-INSERT INTO store (store_id, store_location, year_opened)
-VALUES (101, 'San Jose', 2015);
-INSERT INTO product (product_id, product_category)
-VALUES ('P12345', 'Health & Beauty');
-INSERT INTO customer (age, gender, annual_income_usd, full_name)
-VALUES (30, 'M', 50000.00, 'John Doe');
-INSERT INTO inventory (product_id, store_id, store_location, qty, 
-product_price_usd, product_cost_usd, competitor_price_usd)
-VALUES ('P12345', 101, 'San Jose', 50, 25.00, 15.00, 22.00);
-INSERT INTO popularity (store_id, store_location, visit_date, foot_traffic)
-VALUES (101, 'San Jose', '2023-06-01', 200);
-INSERT INTO purchase 
-(purchase_id, product_id, store_id, customer_id, store_location, 
-payment_method, discount_percent, txn_date, purchased_product_price_usd) 
-VALUES 
-('P000123', 'P12345', 101, 1, 'San Jose', 'Credit Card', 20, 
-'2023-06-01', 100.00);
-INSERT INTO customer_visits (customer_id, store_id, store_location, is_favorite)
-VALUES (1, 101, 'San Jose', 1);
+-- INSERT INTO store (store_id, store_location, year_opened)
+-- VALUES (101, 'San Jose', 2015);
+-- INSERT INTO product (product_id, product_category)
+-- VALUES ('P12345', 'Health & Beauty');
+-- INSERT INTO customer (age, gender, annual_income_usd, full_name)
+-- VALUES (30, 'M', 50000.00, 'John Doe');
+-- INSERT INTO inventory (product_id, store_id, store_location, qty, 
+-- product_price_usd, product_cost_usd, competitor_price_usd)
+-- VALUES ('P12345', 101, 'San Jose', 50, 25.00, 15.00, 22.00);
+-- INSERT INTO popularity (store_id, store_location, visit_date, foot_traffic)
+-- VALUES (101, 'San Jose', '2023-06-01', 200);
+-- INSERT INTO purchase 
+-- (purchase_id, product_id, store_id, customer_id, store_location, 
+-- payment_method, discount_percent, txn_date, purchased_product_price_usd) 
+-- VALUES 
+-- ('P000123', 'P12345', 101, 1, 'San Jose', 'Credit Card', 20, 
+-- '2023-06-01', 100.00);
+-- INSERT INTO customer_visits (customer_id, store_id, store_location, is_favorite)
+-- VALUES (1, 101, 'San Jose', 1);
 
 -- A procedure to execute when updating the store inventory 
 -- Inputs: specific product quantity being change and the quantity change
@@ -299,4 +300,3 @@ DELIMITER ;
 -- output should have a net gain of 5 in quanitity
 CALL update_inventory(1, 20);
 CALL update_inventory(1, -15);
-
