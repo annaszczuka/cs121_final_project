@@ -12,12 +12,12 @@ CREATE USER 'ewang_admin'@'localhost' IDENTIFIED BY 'admin3';
 CREATE USER 'store_manager'@'localhost' IDENTIFIED BY 'client_manager';
 
 -- Grant Admin Privileges
-GRANT ALL PRIVILEGES ON retail_db.* TO 'sreeyur_admin'@'localhost';
-GRANT ALL PRIVILEGES ON retail_db.* TO 'aszszcuka_admin'@'localhost';
-GRANT ALL PRIVILEGES ON retail_db.* TO 'ewang_admin'@'localhost';
+GRANT ALL PRIVILEGES ON retaildb.* TO 'sreeyur_admin'@'localhost';
+GRANT ALL PRIVILEGES ON retaildb.* TO 'aszszcuka_admin'@'localhost';
+GRANT ALL PRIVILEGES ON retaildb.* TO 'ewang_admin'@'localhost';
 
 -- Grant Client (Read-Only) Privileges
-GRANT SELECT ON retail_db.* TO 'store_manager'@'localhost';
+GRANT SELECT ON retaildb.* TO 'store_manager'@'localhost';
 
 -- Apply Changes
 FLUSH PRIVILEGES;
