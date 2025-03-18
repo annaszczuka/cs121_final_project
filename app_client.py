@@ -73,35 +73,6 @@ def get_conn():
 # Functions for Command-Line Options/Query Execution
 # ----------------------------------------------------------------------
 
-def count_gender_health_beauty(conn):
-    """
-    Counts the number of male, female, and non-binary customers who purchased Health and Beauty products.
-    """
-    cursor = conn.cursor()
-    query = """
-        SELECT c.gender, 
-            COUNT(*) AS purchase_count
-        FROM customer c
-        JOIN purchase p 
-            ON c.customer_id = p.customer_id
-        JOIN product pr 
-            ON p.product_id = pr.product_id
-        WHERE pr.product_category = 'Health & Beauty'
-        GROUP BY c.gender;
-    """
-    try:
-        cursor.execute(query)
-        results = cursor.fetchall()
-        print("Health & Beauty Product Purchases by Gender:")
-        for row in results:
-            print(f"Gender: {row[0]}, Purchase Count: {row[1]}")
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
-        conn.close()
-
-
 def most_popular_payment_method(conn):
     """
     Finds the most commonly used payment method for each store.
@@ -121,15 +92,220 @@ def most_popular_payment_method(conn):
         results = cursor.fetchall()
         print("Most Popular Payment Methods Per Store:")
         for row in results:
-            print(f"Store ID: {row[0]}, Payment Method: {row[1]}, Usage Count: {row[2]}")
+            print(f"Store ID: {row[0]}, Store Location: {row[1]}, Payment Method: {row[2]}, Usage Count: {row[3]}")
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
-        conn.close()
+        
+        
+def get_age_stats(conn):
+    """
+    Displays a table of retail statistics grouped by age.
+    After viewing the table, the user can ask further questions related to age or gender statistics.
+    """
+    while True:
+        cursor = conn.cursor()
+        
+        print("\nChoose the type of age analysis you want to perform:")
+        print("1. Analyze basic statistics.")
+        print("2. More in depth analysis.")
+        print("3. Quit")
+        choice = input("Enter your choice (1 or 2 or 3): ")
+
+        if choice == "1":
+            query = """
+                SELECT 
+                    CASE 
+                        WHEN c.age BETWEEN 18 AND 25 THEN '18-25'
+                        WHEN c.age BETWEEN 26 AND 35 THEN '26-35'
+                        WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
+                        ELSE '50+' 
+                    END AS age_group,
+                    COUNT(p.purchase_id) AS total_purchases,
+                    AVG(p.purchased_product_price_usd) AS avg_spent_per_purchase
+                FROM customer c
+                JOIN purchase p 
+                    ON c.customer_id = p.customer_id
+                GROUP BY age_group
+                ORDER BY age_group;
+            """
+
+            try:
+                cursor.execute(query)
+                results = cursor.fetchall()
+                print("\nRetail Statistics by Age Group:")
+                print("------------------------------------------------")
+                print("Age Group | Total Purchases | Avg Spent Per Purchase ($)")
+                print("------------------------------------------------")
+                for row in results:
+                    print(f"{row[0]} | {row[1]} | {row[2]:.2f}")
+                print("------------------------------------------------")
+            except mysql.connector.Error as err:
+                sys.stderr.write(f"Error: {err}\n")
+            finally:
+                cursor.close()
+        elif choice == "2":
+            # ask if user wants to delve deeper into the data to derive specific insights.
+            data_science_questions(conn)
+        elif choice == "3":
+            quit_ui()
+        else:
+            print("Invalid option. Please try again.")
+            input("\nPress Enter to return to the Client Menu...")
+            
 
 
-def most_common_store_location_per_age_group(conn):
+def get_gender_stats(conn):
+    """
+    Displays statistics based on gender, showing how different genders shop.
+    """
+    while True:
+        cursor = conn.cursor()
+        
+        print("\nChoose the type of gender analysis you want to perform:")
+        print("1. Analyze basic statistics.")
+        print("2. More in depth analysis")
+        print("3. Quit")
+        choice = input("Enter your choice (1 or 2 or 3): ")
+        if choice == "1":
+            query = """
+                SELECT c.gender, 
+                        COUNT(p.purchase_id) AS total_purchases,
+                        AVG(p.purchased_product_price_usd) AS avg_spent_per_transaction
+                FROM customer c
+                JOIN purchase p 
+                    ON c.customer_id = p.customer_id
+                GROUP BY c.gender;
+            """
+            try:
+                cursor.execute(query)
+                results = cursor.fetchall()
+                print("\nRetail Statistics by Gender:")
+                print("------------------------------------------------")
+                print("Gender | Total Purchases | Avg Spent Per Transaction ($)")
+                print("------------------------------------------------")
+                for row in results:
+                    print(f"{row[0]} | {row[1]} | {row[2]:.2f}")
+                print("------------------------------------------------")
+
+            except mysql.connector.Error as err:
+                sys.stderr.write(f"Error: {err}\n")
+            finally:
+                cursor.close()
+        elif choice == "2":
+            data_science_questions(conn)
+        elif choice == "3":
+            quit_ui()
+        else:
+            print("Invalid option. Please try again.")
+            input("\nPress Enter to return to the Client Menu...")
+        
+def get_store_stats(conn):
+    """
+    Displays statistics based on stores, beneficial for store manager clients.
+    """
+    while True:
+        cursor = conn.cursor()
+        print("\nChoose the type of store analysis you want to perform:")
+        print("1. Analyze the most popular payment method.")
+        print("2. Analyze general revenue statistics.")
+        print("3. More in depth analysis")
+        print("4. Quit")
+        choice = input("Enter your choice (1 or 2): ")
+        
+        
+        if choice == "1":
+            print("\nFetching the most popular payment method...\n")
+            most_popular_payment_method(conn)
+            return  # Exit function after running the chosen query
+        elif choice == "2":
+            query = """
+                WITH purchase_summary AS (
+                    SELECT store_id,
+                        store_location,
+                        COUNT(*) AS total_transactions,
+                        SUM(purchased_product_price_usd) AS total_revenue
+                    FROM purchase
+                    GROUP BY store_id, store_location
+                ),
+                -- 2) Average foot traffic per store.
+                popularity_summary AS (
+                    SELECT store_id,
+                        store_location,
+                        AVG(foot_traffic) AS avg_foot_traffic
+                    FROM popularity
+                    GROUP BY store_id, store_location
+                )
+                SELECT s.store_id, 
+                    s.store_location,
+                    COALESCE(p.total_transactions, 0) AS total_transactions,
+                    COALESCE(p.total_revenue, 0)      AS total_revenue,
+                    COALESCE(pop.avg_foot_traffic, 0) AS avg_foot_traffic
+                FROM store s
+                LEFT JOIN purchase_summary p 
+                    ON s.store_id = p.store_id 
+                    AND s.store_location = p.store_location
+                LEFT JOIN popularity_summary pop
+                    ON s.store_id = pop.store_id
+                    AND s.store_location = pop.store_location;
+            """
+            try:
+                cursor.execute(query)
+                results = cursor.fetchall()
+                print("\nRetail Statistics by Store:")
+                print("------------------------------------------------")
+                print("Store ID | Store Location | Total Purchases | Total Revenue | Avg Foot Traffic ($)")
+                print("------------------------------------------------")
+                for row in results:
+                    print(f"{row[0]} | {row[1]} | {row[2]} | {row[3]:.2f} | {row[4]:.2f}")
+                print("------------------------------------------------")
+
+            except mysql.connector.Error as err:
+                sys.stderr.write(f"Error: {err}\n")
+            finally:
+                cursor.close()
+        elif choice == "3":
+            data_science_questions(conn)
+        elif choice == '4':
+            quit_ui()
+        else:
+            print("Invalid option. Please try again.")
+            input("\nPress Enter to return to the Client Menu...")
+            
+def get_more_gender_analysis(conn, product_category):
+    """
+    Counts the number of male, female, and non-binary customers who purchased Health and Beauty products.
+    """
+    cursor = conn.cursor()
+    query = """
+        SELECT c.gender, 
+            COUNT(*) AS purchase_count
+        FROM customer c
+        JOIN purchase p 
+            ON c.customer_id = p.customer_id
+        JOIN product pr 
+            ON p.product_id = pr.product_id
+        WHERE pr.product_category = %s
+        GROUP BY c.gender;
+    """
+    try:
+        cursor.execute(query, (product_category,))
+        results = cursor.fetchall()
+        if not results:
+            print(f"\nError: No purchases found for the product category '{product_category}'.")
+            print("Please check the spelling or try a different category.")
+            return
+        print("Health & Beauty Product Purchases by Gender:")
+        for row in results:
+            print(f"Gender: {row[0]}, Purchase Count: {row[1]}")
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
+            
+def get_more_age_analysis(conn):
     """
     Determines the most common store location visited by different age groups.
     """
@@ -162,112 +338,42 @@ def most_common_store_location_per_age_group(conn):
         print("Most Common Store Locations by Age Group:")
         for row in results:
             print(f"Age Group: {row[0]}, Store Location: {row[1]}, Visit Count: {row[2]}")
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
-        conn.close()
-
-
-def get_age_stats(conn):
-    """
-    Displays a table of retail statistics grouped by age.
-    After viewing the table, the user can ask further questions related to age or gender statistics.
-    """
-    cursor = conn.cursor()
-
-    query = """
-        SELECT 
-            CASE 
-                WHEN c.age BETWEEN 18 AND 25 THEN '18-25'
-                WHEN c.age BETWEEN 26 AND 35 THEN '26-35'
-                WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
-                ELSE '50+' 
-            END AS age_group,
-            COUNT(p.purchase_id) AS total_purchases,
-            AVG(p.purchased_product_price_usd) AS avg_spent_per_purchase
-        FROM customer c
-        JOIN purchase p 
-            ON c.customer_id = p.customer_id
-        GROUP BY age_group
-        ORDER BY age_group;
-    """
-
-    try:
-        cursor.execute(query)
-        results = cursor.fetchall()
-        print("\nRetail Statistics by Age Group:")
-        print("------------------------------------------------")
-        print("Age Group | Total Purchases | Avg Spent Per Purchase ($)")
-        print("------------------------------------------------")
-        for row in results:
-            print(f"{row[0]} | {row[1]} | {row[2]:.2f}")
         print("------------------------------------------------")
         # ask if user wants to delve deeper into the data to derive specific insights.
-        data_science_questions()
+        data_science_questions(conn)
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
-        conn.close()
-
-
-def get_gender_stats(conn):
+        
+def get_specific_store_analysis(conn, store_id, store_location):
     """
-    Displays statistics based on gender, showing how different genders shop.
+    Fetches the number of open stores for a store chain (store_count) 
+    and calculates the store score (store_score) for a specific store
     """
     cursor = conn.cursor()
 
-    query = """
-        SELECT c.gender, 
-                COUNT(p.purchase_id) AS total_purchases,
-                AVG(p.purchased_product_price_usd) AS avg_spent_per_transaction
-        FROM customer c
-        JOIN purchase p 
-            ON c.customer_id = p.customer_id
-        GROUP BY c.gender;
-    """
     try:
-        cursor.execute(query)
-        results = cursor.fetchall()
-        print("\nRetail Statistics by Gender:")
-        print("------------------------------------------------")
-        print("Gender | Total Purchases | Avg Spent Per Transaction ($)")
-        print("------------------------------------------------")
-        for row in results:
-            print(f"{row[0]} | {row[1]} | {row[2]:.2f}")
-        print("------------------------------------------------")
-        data_science_questions()
+        cursor.execute("SELECT store_count(%s);", (store_id,))
+        store_count_result = cursor.fetchone()
+        num_open_stores = store_count_result[0] if store_count_result else 0
+
+        cursor.execute("SELECT store_score(%s);", (store_id,))
+        store_score_result = cursor.fetchone()
+        store_score = store_score_result[0] if store_score_result else 0
+
+        print(f"\nAnalysis for Store ID: {store_id}, Location: {store_location}")
+        print("------------------------------------------------------")
+        print(f"Total Stores in Chain: {num_open_stores}")
+        print(f"Store Score: {store_score:.2f}")
+        print("------------------------------------------------------")
 
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
+
     finally:
         cursor.close()
-        conn.close()
 
-
-def get_more_age_analysis(conn):
-    """
-    Allows deeper age-related analysis, such as finding the most common products purchased per age group.
-    """
-    cursor = conn.cursor()
-
-    query = """
-        Query to get the most common products purchased per age group.
-    """
-
-    try:
-        cursor.execute(query)
-        results = cursor.fetchall()
-        print("\nMost Popular Product Categories by Age Group:")
-        for row in results:
-            print(row)
-        data_science_questions()
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
-        conn.close()
 
 def create_account_client(conn):
     cursor = conn.cursor()
@@ -275,8 +381,13 @@ def create_account_client(conn):
     password = input("Enter password: ")
     first_name = input("Enter first name: ")
     last_name = input("Enter last name: ")
-    email = input("Enter contact email: ")
-    is_store_manager = input("Are you a store manager? If Yes, type 1. Else, 0")
+    try:
+        cursor.execute("SELECT get_contact_email(%s)", (username,))  # Assuming not an admin (0)
+        email = cursor.fetchone()[0]  # Fetch the email from the query result
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+
+    is_store_manager = input("Are you a store manager? If Yes, type 1. Else, 0: ")
     phone_number = input("Enter phone number: ")
     query = """
         CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -290,9 +401,9 @@ def create_account_client(conn):
         result = cursor.fetchone()
 
         if result:
-            print(f"User '{result[0]}' created successfully with admin status: {result[1]}")
+            print(f"User '{result[0]}' created successfully with client status: {result[1]}")
         else:
-            print("Failed to create the admin account.")
+            print("Failed to create the client account.")
 
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
@@ -325,7 +436,7 @@ def login_interface(conn):
             
             if result and result[0] == 1:
                 print("Client login successful!")
-                show_client_options()
+                show_client_options(conn)
                 # return 2  # Admin user
             elif result and result[0] == 2:
                 print("You are registered as an admin. Please use the admin interface.")
@@ -340,13 +451,11 @@ def login_interface(conn):
             cursor.close()
         input("\nPress Enter to try logging in again...")
 
-
-
 # ----------------------------------------------------------------------
 # Command-Line Functionality
 # ----------------------------------------------------------------------
 
-def show_client_options():
+def show_client_options(conn):
     """
     Displays options users can choose in the application, such as
     viewing <x>, filtering results with a flag (e.g. -s to sort),
@@ -362,22 +471,16 @@ def show_client_options():
         print('What would you like to do to explore retail data? ')
         print('  (A) - Get Age Statistics')
         print('  (B) - Get Gender Statistics')
-        print('  (C) - Count Health & Beauty Purchases by Gender')
-        print('  (D) - Find Most Popular Payment Methods Per Store')
-        print('  (E) - Determine Most Common Store Locations for Each Age Group') # location stats
+        print('  (C) - Get Store Statistics')
         print('  (q) - quit')
         print()
         ans = input('Enter an option: ').lower()
         if ans == 'a':
-            get_age_stats()
+            get_age_stats(conn)
         elif ans == 'b':
-            get_gender_stats()
-        if ans == 'c':
-            count_gender_health_beauty()
-        elif ans == 'd':
-            most_popular_payment_method()
-        elif ans == 'e':
-            most_common_store_location_per_age_group()
+            get_gender_stats(conn) 
+        elif ans == 'c':
+            get_store_stats(conn)
         elif ans == 'q':
             quit_ui()
         else:
@@ -385,7 +488,7 @@ def show_client_options():
         input("\nPress Enter to return to the Client Menu...")
 
 
-def data_science_questions():
+def data_science_questions(conn):
     """
     After viewing age statistics, allows users to explore further statistics related to gender or age.
     """
@@ -416,18 +519,31 @@ def data_science_questions():
     # For example, one might wonder whether Profit and Product Price are correlated, and this plot will make it really
     # easy to check that.
     while True:
-        print("\nWould you like to explore more?")
+        print("\nWhat would you like to explore more?")
         print("  (1) - View Gender-Specific Statistics")
         print("  (2) - View More Age-Based Analysis")
+        print("  (3) - View Specific Store Analysis")
         print("  (b) - Back to Main Menu")
         print("  (q) - Quit")
 
         ans = input("Enter an option: ").lower()
 
         if ans == '1':
-            get_gender_stats()
+            print("Analyzing Gender Statistics")
+            print("Get gender stats based on product category: ")
+            product_category = input("What product category are you interested in? ")
+            get_more_gender_analysis(conn, product_category)
         elif ans == '2':
-            get_more_age_analysis()
+            print("Analyzing Age Statistics")
+            print("Get most common store location based on age group: ")
+            get_more_age_analysis(conn)
+        elif ans == '3':
+            print("Analyzing Store Statistics")
+            print("Get store stats based on store id and location: ")
+            store_id = input("What store id are you interested in? ")
+            store_location = input("Are you interested in a specific location? ")
+            print()
+            get_specific_store_analysis(conn, store_id, store_location)
         elif ans == 'b':
             show_client_options(conn)
         elif ans == 'q':
