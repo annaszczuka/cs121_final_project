@@ -24,6 +24,8 @@ import mysql.connector
 # To get error codes from the connector, useful for user-friendly
 # error-handling
 import mysql.connector.errorcode as errorcode
+from tabulate import tabulate
+import datetime
 
 # Debugging flag to print errors when debugging that shouldn't be visible
 # to an actual client. ***Set to False when done testing.***
@@ -72,8 +74,6 @@ def get_conn():
 # ----------------------------------------------------------------------
 # Functions for Command-Line Options/Query Execution
 # ----------------------------------------------------------------------
-
-
 # ----------------------------------------------------------------------
 # Admin Functionalities
 # ----------------------------------------------------------------------
@@ -89,9 +89,24 @@ def add_new_transaction(conn):
 
     # Ask the user to input the data for the transaction they want to add. Here are a few examples.
     purchase_id = input("Enter Purchase ID: ").strip()
-    customer_id = input("Enter Customer ID: ").strip()
-    store_id = input("Enter Store ID: ").strip()
-    product_id = input("Enter Product ID: ").strip()
+    try:
+        customer_id = int(input("Enter Customer ID: ").strip())
+    except ValueError:
+        print("Invalid input for Store ID. Please enter a valid number.")
+        return
+    try:
+        store_id = int(input("Enter Store ID: ").strip())
+    except ValueError:
+        print("Invalid input for Store ID. Please enter a valid number.")
+        return
+    try:
+        product_id = int(input("Enter Product ID: ").strip())
+    except ValueError:
+        print("Invalid input for Store ID. Please enter a valid number.")
+        return
+    
+    store_location = input("Enter Store Location: ").strip()
+    purchased_product_price_usd = input("Enter Product Price: ").strip()
 
     # We can ensure the data ia of the correct data type as follows. We will force constraints when adding
     # data in this way.
@@ -105,15 +120,31 @@ def add_new_transaction(conn):
     payment_method = input("Enter Payment Method (Credit, Debit, Cash, etc.): ").strip()
     txn_date = input("Enter Transaction Date (YYYY-MM-DD): ").strip()
 
-    
+
+     # Get today's date
+    current_date = datetime.date.today()
+
+    # Convert txn_date string to a date object
+    try:
+        txn_date_obj = datetime.datetime.strptime(txn_date, "%Y-%m-%d").date()
+    except ValueError:
+        print("Invalid date format. Please enter the date in YYYY-MM-DD format.")
+        return
+
+    # Check if txn_date is today's date or a previous date
+    if txn_date_obj > current_date:
+        print("Error: Transaction date cannot be in the future.")
+        return
+
     cursor.execute("""
             SELECT 
                 (SELECT COUNT(*) FROM customer WHERE customer_id = %s) AS customer_exists,
                 (SELECT COUNT(*) FROM store WHERE store_id = %s) AS store_exists,
-                (SELECT COUNT(*) FROM product WHERE product_id = %s AND store_id = %s) AS product_exists
-        """, (customer_id, store_id, product_id, store_id))
+                (SELECT COUNT(*) FROM store WHERE store_id = %s AND store_location = %s) AS location_exists,
+                (SELECT COUNT(*) FROM inventory WHERE product_id = %s AND store_id = %s) AS product_exists
+        """, (customer_id, store_id, store_id, store_location, product_id, store_id))
 
-    customer_exists, store_exists, product_exists = cursor.fetchone()
+    customer_exists, store_exists, location_exists, product_exists = cursor.fetchone()
 
     if not customer_exists:
         print("Error: Customer ID does not exist.")
@@ -121,18 +152,21 @@ def add_new_transaction(conn):
     if not store_exists:
         print("Error: Store ID does not exist.")
         return
+    if not location_exists:
+        print("Error: Store Location does not exist.")
+        print("Error: Please enter a valid Store Location.")
+        return
     if not product_exists:
         print("Error: Product ID does not exist for this store.")
         return
 
     query = """
-            INSERT INTO purchase (purchase_id, product_id, store_id, customer_id, payment_method, discount_percent, txn_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s);
+            INSERT INTO purchase (purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
         """
-
     try:
         cursor.execute(query,
-                       (purchase_id, product_id, store_id, customer_id, payment_method, discount_percent, txn_date))
+                       (purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd))
         conn.commit()
         print("Purchase successfully added.")
     except mysql.connector.Error as err:
@@ -178,51 +212,73 @@ def view_store_performance(conn):
             ON s.store_id = pop.store_id
             AND s.store_location = pop.store_location;
     """
-
     try:
         cursor.execute(query)
         results = cursor.fetchall()
-        print("\nStore Performance Report:")
-        print("---------------------------------------------------------------")
-        print("Store ID | Location | Total Transactions | Total Revenue ($) | Avg Foot Traffic")
-        print("---------------------------------------------------------------")
-        for row in results:
-            print(f"{row[0]} | {row[1]} | {row[2]} | {row[3]:.2f} | {row[4]:.2f}")
-        print("---------------------------------------------------------------")
+
+        if not results:
+            print("No store performance data available.")
+        else:
+            headers = ["Store ID", "Location", "Total Transactions", "Total Revenue ($)", "Avg Foot Traffic"]
+            table = [list(row) for row in results]
+
+            print("\nStore Performance Report:")
+            print(tabulate(table, headers=headers, tablefmt="pretty"))
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
+        conn.close()
 
-def delete_client_account(conn):
+def view_materialized_store_sales(conn):
     """
-    Allows the admin to delete a client account
+    View the materialized view of store sales statistics.
+    Result shows 10 rows per page. Press N to move onto next page 
+    or any other key to quit
     """
     cursor = conn.cursor()
-    
-    username = input("\nEnter the username to delete: ").strip()
-    
+    query = """
+        SELECT store_id, total_sales, 
+        num_purchases, 
+        avg_discount, 
+        min_price, max_price
+        FROM mv_store_sales_stats;
+    """
     try:
-        cursor.execute("SELECT COUNT(*) FROM user_info WHERE username = %s", (username,))
-        result = cursor.fetchone()
-        
-        if result is None:
-            print("Error: User does not exist.")
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        if not results:
+            print("No sales data available.")
             return
-        
-        cursor.execute("SELECT is_admin FROM user_info WHERE username = %s", (username,))
-        result = cursor.fetchone()
-        
-        is_admin = result[0]  # Fetch is_admin value
-        print(is_admin)
-        if is_admin == 1:
-            print("Error: Cannot delete an admin account.")
-            return
-        
-        # Delete the purchase record
-        cursor.execute("DELETE FROM user_info WHERE username = %s", (username,))
-        conn.commit()
-        print("Client account deleted successfully.")
+
+        headers = ["Store ID", "Total Sales ($)", "Num Purchases", "Avg Discount (%)", "Min Price ($)", "Max Price ($)"]
+
+        page_size = 10 
+        total_rows = len(results)
+        total_pages = (total_rows + page_size - 1) // page_size 
+        start = 0
+        page_num = 1
+
+        while start < total_rows:
+            end = start + page_size
+            table = [list(row) for row in results[start:end]]
+            
+            print("\nStore Sales Statistics")
+            print(tabulate(table, headers=headers, tablefmt="pretty"))
+
+            print(f"\nPage {page_num} of {total_pages}")
+
+            if end >= total_rows:
+                break
+            
+            user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
+            if user_input != 'n':
+                break
+
+            start += page_size 
+            page_num += 1  
+
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
@@ -234,7 +290,7 @@ def create_account_admin(conn):
     password = input("Enter password: ")
     first_name = input("Enter first name: ")
     last_name = input("Enter last name: ")
-    employee_type = input("Enter identity (researcher, engineer, or maintenance): ")
+    employee_type = input("Enter identity (researcher, engineer, or maintenance): ").lower()
     
     query = """
         CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s)
@@ -276,7 +332,6 @@ def login_interface(conn):
         query = """
             SELECT authenticate(%s, %s)
         """
-        
         try:
             cursor.execute(query, (username, password))
             result = cursor.fetchone()
@@ -320,8 +375,8 @@ def show_admin_options():
     while True:
         print('What would you like to do? ')
         print('  (1) - Add a New Transaction')
-        print('  (2) - View Store Performance Reports')
-        print('  (3) - Delete a Client Account')
+        print('  (2) - View Store Specific Performance Reports')
+        print('  (3) - View Store Chain Performance Reports')
         print('  (q) - quit')
         print()
         ans = input('Enter an option: ').lower()
@@ -330,7 +385,7 @@ def show_admin_options():
         elif ans == '2':
             view_store_performance(conn)
         elif ans == '3':
-            delete_client_account(conn)
+            view_materialized_store_sales(conn)
         elif ans == 'q':
             quit_ui()
         else:
