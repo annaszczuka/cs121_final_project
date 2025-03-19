@@ -24,6 +24,7 @@ import mysql.connector
 # To get error codes from the connector, useful for user-friendly
 # error-handling
 import mysql.connector.errorcode as errorcode
+from tabulate import tabulate
 
 # Debugging flag to print errors when debugging that shouldn't be visible
 # to an actual client. ***Set to False when done testing.***
@@ -115,8 +116,14 @@ def get_age_stats(conn):
 
         if choice == "1":
             query = """
-                SELECT 
-                    
+                SELECT age_range, 
+                       SUM(CASE WHEN product_category IN ('Groceries', 'Health & Beauty') THEN total_sales ELSE 0 END) 
+                            AS necessities,
+                       SUM(CASE WHEN product_category NOT IN ('Groceries', 'Health & Beauty') THEN total_sales ELSE 0 END) 
+                            AS non_necessities
+                FROM sales_summary_by_age_group
+                GROUP BY age_range
+                ORDER BY age_range;
             """
 
 
@@ -140,13 +147,11 @@ def get_age_stats(conn):
             try:
                 cursor.execute(query)
                 results = cursor.fetchall()
-                print("\nRetail Statistics by Age Group:")
-                print("------------------------------------------------")
-                print("Age Group | Total Purchases | Avg Spent Per Purchase ($)")
-                print("------------------------------------------------")
-                for row in results:
-                    print(f"{row[0]} | {row[1]} | {row[2]:.2f}")
-                print("------------------------------------------------")
+                if results:
+                    headers = ["Age Group", "Total Purchases", "Avg Spent Per Purchase ($)"]
+                    print("\n" + tabulate(results, headers=headers, tablefmt="grid") + "\n")
+                else:
+                    print("\nNo results found.\n")
             except mysql.connector.Error as err:
                 sys.stderr.write(f"Error: {err}\n")
             finally:
@@ -310,33 +315,103 @@ def get_more_gender_analysis(conn, product_category):
     finally:
         cursor.close()
 
-            
-def get_more_age_analysis(conn):
+
+def get_min_max_buyers_per_product(conn):
+    cursor = conn.cursor()
+    query = """
+            SELECT product_category, 
+                   MIN(age_range) AS youngest_buyers,
+                   MAX(age_range) AS oldest_buyers
+            FROM sales_summary_by_age_group
+            GROUP BY product_category;
+            """
+    try:
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        if results:
+            headers = ["Product Category", "Youngest Buyers", "Oldest Buyers"]
+            print("\n" + tabulate(results, headers=headers, tablefmt="grid") + "\n")
+        else:
+            print("\nNo results found.\n")
+
+        # ask if user wants to delve deeper into the data to derive specific insights.
+        data_science_questions(conn)
+
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
+
+def get_most_popular_store_chains_per_age_group(conn):
     """
     Determines the most common store location visited by different age groups.
     """
     cursor = conn.cursor()
     # Specify age group categories up to 50 and then just classify as above 50 years. Assume customers
     # must be at least 18 (adult) to make a purchase.
+
+    # get the rank of stores by most purchases
     query = """
         SELECT 
-            sa.age_range AS age_group,
-            s.store_id,
-            s.store_location,
-            COUNT(*) AS visit_count
-        FROM sales_summary_by_age_group sa
-        JOIN store s 
-        ON sa.product_category = s.store_id -- Assuming product_category represents stores in some way
-        GROUP BY sa.age_range, s.store_id, s.store_location
-        ORDER BY sa.age_range, visit_count DESC;
+            age_group, 
+            store_chain, 
+            total_purchases
+        FROM (
+            SELECT 
+                CASE 
+                    WHEN c.age BETWEEN 18 AND 25 THEN '18-25'
+                    WHEN c.age BETWEEN 26 AND 35 THEN '26-35'
+                    WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
+                    WHEN c.age BETWEEN 40 AND 49 THEN '40-49'
+                    WHEN c.age BETWEEN 50 AND 59 THEN '50-59'
+                    WHEN c.age BETWEEN 60 AND 69 THEN '60-69'
+                    WHEN c.age BETWEEN 70 AND 79 THEN '70-79'
+                    WHEN c.age BETWEEN 80 AND 89 THEN '80-89'
+                    ELSE '90+'
+                END AS age_group,
+                s.store_chain_name AS store_chain,
+                COUNT(*) AS total_purchases
+            FROM customer_visits cv
+            JOIN customer c ON cv.customer_id = c.customer_id
+            JOIN store s ON cv.store_id = s.store_id
+            GROUP BY age_group, s.store_chain_name, s.store_id
+        ) ranked_stores
+        WHERE total_purchases = (
+            SELECT MAX(total_purchases)
+            FROM (
+                SELECT 
+                    CASE 
+                        WHEN c.age BETWEEN 18 AND 25 THEN '18-25'
+                        WHEN c.age BETWEEN 26 AND 35 THEN '26-35'
+                        WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
+                        WHEN c.age BETWEEN 40 AND 49 THEN '40-49'
+                        WHEN c.age BETWEEN 50 AND 59 THEN '50-59'
+                        WHEN c.age BETWEEN 60 AND 69 THEN '60-69'
+                        WHEN c.age BETWEEN 70 AND 79 THEN '70-79'
+                        WHEN c.age BETWEEN 80 AND 89 THEN '80-89'
+                        ELSE '90+'
+                    END AS age_group,
+                    s.store_chain_name,
+                    COUNT(*) AS total_purchases
+                FROM customer_visits cv
+                JOIN customer c ON cv.customer_id = c.customer_id
+                JOIN store s ON cv.store_id = s.store_id
+                GROUP BY age_group, s.store_chain_name, s.store_id
+            ) max_counts
+            WHERE max_counts.age_group = ranked_stores.age_group
+        )
+        ORDER BY age_group;
     """
     try:
         cursor.execute(query)
         results = cursor.fetchall()
-        print("Most Common Store Locations by Age Group:")
-        for row in results:
-            print(f"Age Group: {row[0]}, Store Location: {row[1]}, Visit Count: {row[2]}")
-        print("------------------------------------------------")
+        headers = ["Age Group", "Store Location", "Visit Count"]
+        if results:
+            print("\n" + tabulate(results, headers=headers, tablefmt="grid") + "\n")
+        else:
+            print("\nNo results found.\n")
         # ask if user wants to delve deeper into the data to derive specific insights.
         data_science_questions(conn)
     except mysql.connector.Error as err:
@@ -539,9 +614,15 @@ def data_science_questions(conn):
             product_category = input("What product category are you interested in? ")
             get_more_gender_analysis(conn, product_category)
         elif ans == '2':
-            print("Analyzing Age Statistics")
-            print("Get most common store location based on age group: ")
-            get_more_age_analysis(conn)
+            print("\nHow would you like to analyze Age Statistics:")
+            print("  (a) - Get minimum and maximum age groups for each product category")
+            print("  (b) - Get most popular store chain among age groups based on number of total purchases")
+            ans = input("Enter an option: ").lower()
+            if ans == 'a':
+                get_min_max_buyers_per_product(conn)
+            if ans == 'b':
+                get_most_popular_store_chains_per_age_group(conn)
+            print("Get most store chain where most items were purchased based on age group: ")
         elif ans == '3':
             print("Analyzing Store Statistics")
             print("Get store stats based on store id and location: ")
