@@ -501,7 +501,9 @@ def get_specific_inventory_analysis(conn):
     
 def view_materialized_store_sales(conn):
     """
-    View the materialized view of store sales statistics
+    View the materialized view of store sales statistics.
+    Result shows 10 rows per page. Press N to move onto next page 
+    or any other key to quit
     """
     cursor = conn.cursor()
     query = """
@@ -521,32 +523,36 @@ def view_materialized_store_sales(conn):
 
         headers = ["Store ID", "Total Sales ($)", "Num Purchases", "Avg Discount (%)", "Min Price ($)", "Max Price ($)"]
 
-        page_size = 10
+        page_size = 10 
+        total_rows = len(results)
+        total_pages = (total_rows + page_size - 1) // page_size 
         start = 0
-        while start < len(results):
+        page_num = 1
+
+        while start < total_rows:
             end = start + page_size
             table = [list(row) for row in results[start:end]]
             
-            # Print the current page
             print("\nStore Sales Statistics")
             print(tabulate(table, headers=headers, tablefmt="pretty"))
 
-            # Check if there's more data
-            if end >= len(results):
+            print(f"\nPage {page_num} of {total_pages}")
+
+            if end >= total_rows:
                 break
             
-            # Ask user to press 'N' to continue
             user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
             if user_input != 'n':
                 break
 
-            start += page_size  # Move to the next page
+            start += page_size 
+            page_num += 1  
+
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
-        conn.close()
-
+    
 def create_account_client(conn):
     cursor = conn.cursor()
     username = input("Enter username: ")
