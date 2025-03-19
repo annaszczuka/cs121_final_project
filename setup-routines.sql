@@ -108,6 +108,38 @@ SELECT get_sale_price(10, 227, 39, 625) AS sale_price;
 -- expected output: 205.49
 SELECT get_sale_price(1, 88, 47, 693) AS sale_price;
 
+
+-- view summarizes the total sales 
+-- grouped by product category and customer age range.
+CREATE VIEW sales_summary_by_age_group AS
+SELECT
+    -- product category
+    product.product_category,
+    -- sort customer age into specific group
+    CASE
+    WHEN customer.age BETWEEN 0 AND 9 THEN '0-9'
+    WHEN customer.age BETWEEN 10 AND 20 THEN '10-20'
+    WHEN customer.age BETWEEN 20 AND 29 THEN '20-29'
+    WHEN customer.age BETWEEN 30 AND 39 THEN '30-39'
+    WHEN customer.age BETWEEN 40 AND 49 THEN '40-49'
+    WHEN customer.age BETWEEN 50 AND 59 THEN '50-59'
+    WHEN customer.age BETWEEN 60 AND 69 THEN '60-69'
+    WHEN customer.age BETWEEN 70 AND 79 THEN '70-79'
+    WHEN customer.age BETWEEN 80 AND 89 THEN '80-89'
+    ELSE '90+'
+    END AS age_range,
+    
+    -- Calculate total sales by summing the sale price for each purchase
+    SUM(
+    get_sale_price
+    (purchase.purchase_id, purchase.product_id, 
+    purchase.store_id, purchase.customer_id)) AS total_sales
+FROM purchase 
+JOIN product ON purchase.product_id = product.product_id
+JOIN customer ON purchase.customer_id = customer.customer_id
+GROUP BY product.product_category, age_range
+ORDER BY product.product_category, age_range;
+
 -- Calculates a store score which examines foot_traffic in relation 
 -- store sales. This score will helps determine how successful a store is 
 -- in relation to foot_traffic, transactions, and scores. 
@@ -303,23 +335,23 @@ END !
 
 DELIMITER ;
 
--- Insert data into tables to test trigger 
-INSERT INTO store (store_id, store_location, year_opened)
-VALUES (101, 'San Jose', 2015);
-INSERT INTO product (product_id, product_category)
-VALUES ('P12345', 'Health & Beauty');
-INSERT INTO customer (age, gender, annual_income_usd, full_name)
-VALUES (30, 'M', 50000.00, 'John Doe');
-INSERT INTO inventory (product_id, store_id, store_location, qty, 
-product_price_usd, product_cost_usd, competitor_price_usd)
-VALUES ('P12345', 101, 'San Jose', 50, 25.00, 15.00, 22.00);
-INSERT INTO popularity (store_id, store_location, visit_date, foot_traffic)
-VALUES (101, 'San Jose', '2023-06-01', 200);
-INSERT INTO purchase 
-(purchase_id, product_id, store_id, customer_id, store_location, 
-payment_method, discount_percent, txn_date, purchased_product_price_usd) 
-VALUES 
-('P000123', 'P12345', 101, 1, 'San Jose', 'Credit Card', 20, 
-'2023-06-01', 100.00);
-INSERT INTO customer_visits (customer_id, store_id, store_location, is_favorite)
-VALUES (1, 101, 'San Jose', 1);
+-- -- Insert data into tables to test trigger 
+-- INSERT INTO store (store_id, store_location, year_opened)
+-- VALUES (101, 'San Jose', 2015);
+-- INSERT INTO product (product_id, product_category)
+-- VALUES ('P12345', 'Health & Beauty');
+-- INSERT INTO customer (age, gender, annual_income_usd, full_name)
+-- VALUES (30, 'M', 50000.00, 'John Doe');
+-- INSERT INTO inventory (product_id, store_id, store_location, qty, 
+-- product_price_usd, product_cost_usd, competitor_price_usd)
+-- VALUES ('P12345', 101, 'San Jose', 50, 25.00, 15.00, 22.00);
+-- INSERT INTO popularity (store_id, store_location, visit_date, foot_traffic)
+-- VALUES (101, 'San Jose', '2023-06-01', 200);
+-- INSERT INTO purchase 
+-- (purchase_id, product_id, store_id, customer_id, store_location, 
+-- payment_method, discount_percent, txn_date, purchased_product_price_usd) 
+-- VALUES 
+-- ('P000123', 'P12345', 101, 1, 'San Jose', 'Credit Card', 20, 
+-- '2023-06-01', 100.00);
+-- INSERT INTO customer_visits (customer_id, store_id, store_location, is_favorite)
+-- VALUES (1, 101, 'San Jose', 1);
