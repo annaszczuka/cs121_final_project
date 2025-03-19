@@ -10,6 +10,3 @@ GRANT ALL PRIVILEGES ON retaildb.* TO 'admin'@'localhost';
 
 -- Grant Client (Read-Only) Privileges
 GRANT SELECT ON retaildb.* TO 'client'@'localhost';
-
--- Apply Changes
-FLUSH PRIVILEGES;
