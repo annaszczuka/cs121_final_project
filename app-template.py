@@ -373,7 +373,6 @@ def update_customer_info(conn):
         cursor.close()
         conn.close()
 
-
 def delete_transaction_record(conn):
     """
     Allows the admin to delete a transaction record.
@@ -438,6 +437,27 @@ def view_store_performance(conn):
         conn.close()
 
 
+def get_contact_email(conn, username):
+    """
+    Given a username, retrieves the contact email of the person associated 
+    with the username
+    """
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT get_contact_email(%s);", (username,))
+        result = cursor.fetchone()
+        if result:
+            print(f"Username: {username}, Contact Email: {result[0]}")
+        else:
+            print(f"No associated email with given username: {username}")
+            print("Please check spelling or punctuation")
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
+
 # ----------------------------------------------------------------------
 # Functions for Logging Users In
 # ----------------------------------------------------------------------
@@ -470,6 +490,7 @@ def show_options():
     print('  (C) - Count Health & Beauty Purchases by Gender')
     print('  (D) - Find Most Popular Payment Methods Per Store')
     print('  (E) - Determine Most Common Store Locations for Each Age Group') # location stats
+    print('  (F) - Get a Point of Email Contact')
     print('  (q) - quit')
     print()
     ans = input('Enter an option: ').lower()
@@ -483,6 +504,9 @@ def show_options():
         most_popular_payment_method()
     elif ans == 'e':
         most_common_store_location_per_age_group()
+    elif ans == 'f':
+        username = input("Enter the username: ").strip()
+        get_contact_email(conn, username)
     elif ans == 'q':
         quit_ui()
     else:

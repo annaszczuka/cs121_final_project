@@ -452,6 +452,35 @@ def get_specific_store_analysis(conn, store_id, store_location):
     finally:
         cursor.close()
 
+def view_materialized_store_sales(conn):
+    """
+    View the materialized view of store sales statistics
+    """
+    cursor = conn.cursor()
+    query = """
+        SELECT store_id, total_sales, 
+        num_purchases, 
+        avg_discount, 
+        min_price, max_price
+        FROM mv_store_sales_stats;
+    """
+    try:
+        cursor.execute(query)
+        results = cursor.fetchall()
+        print("\nMaterialized View: Store Sales Statistics")
+        print("-------------------------------------------------------------")
+        print("Store ID | Total Sales ($) | Num Purchases " +
+      "| Avg Discount (%) | Min Price ($) | Max Price ($)")
+        print("-------------------------------------------------------------")
+        for row in results:
+            print(f"{row[0]} | {row[1]:.2f} | {row[2]} | {row[3]:.2f} | " + 
+                " {row[4]:.2f} | {row[5]:.2f}")
+        print("-------------------------------------------------------------")
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+        conn.close()
 
 def create_account_client(conn):
     cursor = conn.cursor()
@@ -552,6 +581,7 @@ def show_client_options(conn):
         print('  (A) - Get Age Statistics')
         print('  (B) - Get Gender Statistics')
         print('  (C) - Get Store Statistics')
+        print('  (D) - Get Overall Store Statistics')
         print('  (q) - quit')
         print()
         ans = input('Enter an option: ').lower()
@@ -561,6 +591,8 @@ def show_client_options(conn):
             get_gender_stats(conn) 
         elif ans == 'c':
             get_store_stats(conn)
+        elif ans == 'd':
+            view_materialized_store_sales(conn)
         elif ans == 'q':
             quit_ui()
         else:
