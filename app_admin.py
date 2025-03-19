@@ -78,7 +78,7 @@ def get_conn():
 # Admin Functionalities
 # ----------------------------------------------------------------------
 
-
+# Adding transaction changes inventory for all 
 def add_new_transaction(conn):
     """
     Allows an admin to add a new transaction manually into the database.
@@ -105,19 +105,23 @@ def add_new_transaction(conn):
     payment_method = input("Enter Payment Method (Credit, Debit, Cash, etc.): ").strip()
     txn_date = input("Enter Transaction Date (YYYY-MM-DD): ").strip()
 
-    # make sure the referenced entities exist
-    cursor.execute("SELECT COUNT(*) FROM customer WHERE customer_id = %s", (customer_id,))
-    if cursor.fetchone()[0] == 0:
+    
+    cursor.execute("""
+            SELECT 
+                (SELECT COUNT(*) FROM customer WHERE customer_id = %s) AS customer_exists,
+                (SELECT COUNT(*) FROM store WHERE store_id = %s) AS store_exists,
+                (SELECT COUNT(*) FROM product WHERE product_id = %s AND store_id = %s) AS product_exists
+        """, (customer_id, store_id, product_id, store_id))
+
+    customer_exists, store_exists, product_exists = cursor.fetchone()
+
+    if not customer_exists:
         print("Error: Customer ID does not exist.")
         return
-
-    cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (store_id,))
-    if cursor.fetchone()[0] == 0:
+    if not store_exists:
         print("Error: Store ID does not exist.")
         return
-
-    cursor.execute("SELECT COUNT(*) FROM product WHERE product_id = %s AND store_id = %s", (product_id, store_id))
-    if cursor.fetchone()[0] == 0:
+    if not product_exists:
         print("Error: Product ID does not exist for this store.")
         return
 
@@ -131,92 +135,6 @@ def add_new_transaction(conn):
                        (purchase_id, product_id, store_id, customer_id, payment_method, discount_percent, txn_date))
         conn.commit()
         print("Purchase successfully added.")
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
-
-
-def update_customer_info(conn):
-    """
-    Allows the admin to update a customer's information.
-    """
-    cursor = conn.cursor()
-
-    customer_id = input("\nEnter Customer ID to update: ").strip()
-    updates = []
-    params = []
-
-    new_age = input("Enter new age (leave blank to keep current value): ").strip()
-    new_gender = input("Enter new gender (M/F/X) (leave blank to keep current value): ").strip()
-    new_income = input("Enter new annual income (leave blank to keep current value): ").strip()
-
-    # Here is an example of how we plan to address updates in our table as this is bound to happen
-    # for customer retail data.
-    if new_age:
-        try:
-            new_age = int(new_age)
-            updates.append("age = %s")
-            params.append(new_age)
-        except ValueError:
-            print("Invalid age format. Please enter a number.")
-            return
-
-    if new_gender:
-        if new_gender in ['M', 'F', 'X']:
-            updates.append("gender = %s")
-            params.append(new_gender)
-        else:
-            print("Invalid gender input. Use 'M', 'F', or 'X'.")
-            return
-
-    if new_income:
-        try:
-            new_income = float(new_income)
-            updates.append("annual_income_usd = %s")
-            params.append(new_income)
-        except ValueError:
-            print("Invalid income format. Please enter a number.")
-            return
-
-    if not updates:
-        print("No changes made.")
-        return
-
-    # Construct update query dynamically
-    query = f"UPDATE customer SET {', '.join(updates)} WHERE customer_id = %s"
-    params.append(customer_id)
-
-    # We will use the parameters and updates to create the SQL query and execute it with the cursor.
-    try:
-        cursor.execute(query, params)
-        conn.commit()
-        print("Customer information updated successfully.")
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
-
-
-def delete_transaction_record(conn):
-    """
-    Allows the admin to delete a transaction record.
-    """
-    cursor = conn.cursor()
-
-    purchase_id = input("\nEnter the Purchase ID to delete: ").strip()
-
-    try:
-        # Check if the purchase exists
-        cursor.execute("SELECT COUNT(*) FROM purchase WHERE purchase_id = %s", (purchase_id,))
-        if cursor.fetchone()[0] == 0:
-            print("Error: Purchase ID does not exist.")
-            return
-
-        # Delete the purchase record
-        cursor.execute("DELETE FROM purchase WHERE purchase_id = %s", (purchase_id,))
-        conn.commit()
-        print("Purchase record deleted successfully.")
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
@@ -378,7 +296,9 @@ def login_interface(conn):
             sys.stderr.write(f"Error: {err}\n")
         finally:
             cursor.close()
-        input("\nPress Enter to try logging in again...")
+        ans = input("\nPress Enter to try logging in again or type exit to return to the main page: ")
+        if ans == "exit":
+            break
 
 # ----------------------------------------------------------------------
 # Command-Line Functionality
@@ -400,22 +320,16 @@ def show_admin_options():
     while True:
         print('What would you like to do? ')
         print('  (1) - Add a New Transaction')
-        print('  (2) - Update a Customer\'s Information')
-        print('  (3) - Delete a Transaction Record')
-        print('  (4) - View Store Performance Reports')
-        print('  (5) - Delete a Client Account')
+        print('  (2) - View Store Performance Reports')
+        print('  (3) - Delete a Client Account')
         print('  (q) - quit')
         print()
         ans = input('Enter an option: ').lower()
         if ans == '1':
             add_new_transaction(conn)
         elif ans == '2':
-            update_customer_info(conn)
-        elif ans == '3':
-            delete_transaction_record(conn)
-        elif ans == '4': 
             view_store_performance(conn)
-        elif ans == '5':
+        elif ans == '3':
             delete_client_account(conn)
         elif ans == 'q':
             quit_ui()
