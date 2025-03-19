@@ -706,8 +706,7 @@ def create_account_client(conn):
         try:
             cursor.execute(query, (username, password, 0, first_name, last_name, is_store_manager, phone_number, None))
             conn.commit()
-            check_query = "SELECT username, is_admin FROM user_info WHERE username = %s"
-            print(f"User '{result[0]}' created successfully. ")
+            print(f"User account created successfully. ")
             break
 
         except mysql.connector.Error as err:

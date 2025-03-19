@@ -26,6 +26,7 @@ import mysql.connector
 import mysql.connector.errorcode as errorcode
 from tabulate import tabulate
 import datetime
+from abstracted import check_user_or_pass, print_divider, print_lines, print_section_header
 
 # Debugging flag to print errors when debugging that shouldn't be visible
 # to an actual client. ***Set to False when done testing.***
@@ -84,8 +85,8 @@ def add_new_transaction(conn):
     Allows an admin to add a new transaction manually into the database.
     """
     cursor = conn.cursor()
-
-    print("\nAdding a New Transaction")
+    print_section_header("Transaction Page")
+    print("Adding a New Transaction")
 
     # Ask the user to input the data for the transaction they want to add. Here are a few examples.
     purchase_id = input("Enter Purchase ID: ").strip()
@@ -180,6 +181,7 @@ def view_store_performance(conn):
     and average foot traffic per store.
     """
     cursor = conn.cursor()
+    print_section_header("Store Performance Page")
 
     # Query to display the store performance reports including revenue, total transactions,
     # and average foot traffic per store.
@@ -236,6 +238,7 @@ def view_materialized_store_sales(conn):
     Result shows 10 rows per page. Press N to move onto next page 
     or any other key to quit
     """
+    print_section_header("View Page")
     cursor = conn.cursor()
     query = """
         SELECT store_id, total_sales, 
@@ -285,33 +288,47 @@ def view_materialized_store_sales(conn):
         cursor.close()
 
 def create_account_admin(conn):
-    cursor = conn.cursor()
-    username = input("Enter username: ")
-    password = input("Enter password: ")
-    first_name = input("Enter first name: ")
-    last_name = input("Enter last name: ")
-    employee_type = input("Enter identity (researcher, engineer, or maintenance): ").lower()
-    
-    query = """
-        CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    
-    try:
-        cursor.execute(query, (username, password, 1, first_name, last_name, None, None, employee_type))
-        conn.commit()
-        check_query = "SELECT username, is_admin FROM user_info WHERE username = %s"
-        cursor.execute(check_query, (username,))
-        result = cursor.fetchone()
+    while True: 
+        print_section_header("Create Account")
+        cursor = conn.cursor()
+        username = input("Enter username: ")
+        if not check_user_or_pass(conn, username, "username", 0):
+            continue
+        password = input("Enter password: ")
+        if not check_user_or_pass(conn, password, "password", 0):
+            continue
+        
+        first_name = input("Enter first name: ")
+        if first_name == "":
+            print("You did not enter a first name. Please try again. ")
+            continue
+        last_name = input("Enter last name: ")
+        if last_name == "":
+            print("You did not enter a last name. Please try again. ")
+            continue
+        employee_type = input("Enter identity (researcher, engineer, or maintenance): ").lower()
+        if employee_type == "":
+            print("You did not enter an identity. Please try again. ")
+            continue
+        employee_types = {"researcher", "engineer", "maintenance"}
+        if employee_type not in employee_types:
+            print("This identity does not exist. Please check your spelling and choose from the options listed. ")
+            continue
+        
+        query = """
+            CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        try:
+            cursor.execute(query, (username, password, 1, first_name, last_name, None, None, employee_type))
+            conn.commit()
+            print(f"User account created successfully. ")
+            break
 
-        if result:
-            print(f"User '{result[0]}' created successfully with admin status: {result[1]}")
-        else:
-            print("Failed to create the admin account.")
-
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
+        except mysql.connector.Error as err:
+            sys.stderr.write(f"Error: {err}\n")
+        finally:
+            cursor.close()
         
 # ----------------------------------------------------------------------
 # Functions for Logging Users In
@@ -325,9 +342,17 @@ def create_account_admin(conn):
 def login_interface(conn):
     while True:
         cursor = conn.cursor()
+        print_section_header("Login Page")
         print("Welcome! Please log in as an administrator.")
+        
         username = input("Enter username: ")
+        if not check_user_or_pass(conn, username, "username", 1):
+            continue
+        
         password = input("Enter password: ")
+        if not check_user_or_pass(conn, password, "password", 1):
+            continue
+        
         
         query = """
             SELECT authenticate(%s, %s)
@@ -345,6 +370,7 @@ def login_interface(conn):
                 # return 1  # Regular user
             else:
                 print("Invalid username or password.")
+                continue
                 # return 0  # Authentication failed
 
         except mysql.connector.Error as err:
@@ -373,6 +399,7 @@ def show_admin_options():
     # There are also specific statistics only admins can view such as store performance reports,
     # as if competitors get access to this information, that might cause issues as that could be private info.
     while True:
+        print_section_header("Menu Page")
         print('What would you like to do? ')
         print('  (1) - Add a New Transaction')
         print('  (2) - View Store Specific Performance Reports')
@@ -408,7 +435,7 @@ def main(conn):
     Main function for starting things up.
     """
     while True:
-        print("\n=== Administration Page ===")
+        print_section_header("Administration Page")
         print("Would you like to: ")
         print("1. Create an account")
         print("2. Login")

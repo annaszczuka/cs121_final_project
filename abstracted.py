@@ -21,12 +21,15 @@ def check_user_or_pass(conn, word, type, is_login):
         return 0
     
     # checks to make sure username is in the database
-    if type == "username" and is_login:
+    if type == "username":
         check_query = f"SELECT username FROM user_info WHERE username = %s"
         cursor.execute(check_query, (word,))
         result = cursor.fetchone()
-        if not result:
+        if is_login and not result:
             print("Username does not exist. Please try again. ")
+            return 0
+        if not is_login and result:
+            print("Username is already taken. Please try again. ")
             return 0
     return 1
 
