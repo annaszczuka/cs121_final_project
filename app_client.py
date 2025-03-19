@@ -554,33 +554,54 @@ def view_materialized_store_sales(conn):
         cursor.close()
     
 def create_account_client(conn):
-    cursor = conn.cursor()
-    username = input("Enter username: ")
-    password = input("Enter password: ")
-    first_name = input("Enter first name: ")
-    last_name = input("Enter last name: ")
-    is_store_manager = input("Are you a store manager? If Yes, type 1. Else, type 0: ")
-    phone_number = input("Enter phone number: ")
-    query = """
-        CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    
-    try:
-        cursor.execute(query, (username, password, 0, first_name, last_name, is_store_manager, phone_number, None))
-        conn.commit()
-        check_query = "SELECT username, is_admin FROM user_info WHERE username = %s"
+    while True:
+        cursor = conn.cursor()
+        username = input("Enter username: ")
+        if username == "":
+            print("You did not enter an username. Please try again. ")
+            continue
+        
+        # checks to make sure username is not already taken. 
+        # Even if the username is an admin, we do not allow for duplicate usernames. 
+        check_query = "SELECT username FROM user_info WHERE username = %s"
         cursor.execute(check_query, (username,))
         result = cursor.fetchone()
-
         if result:
-            print(f"User '{result[0]}' created successfully with client status: {result[1]}")
-        else:
-            print("Failed to create the client account.")
+            print("Username is already taken. Please try again.")
+            continue
+        
+        password = input("Enter password: ")
+        if password == "":
+            print("You did not enter a password. Please try again. ")
+            continue
+        first_name = input("Enter first name: ")
+        if first_name == "":
+            print("You did not enter a first name. Please try again. ")
+            continue
+        last_name = input("Enter last name: ")
+        if last_name == "":
+            print("You did not enter a last name. Please try again. ")
+            continue
+        is_store_manager = input("Are you a store manager? If Yes, type 1. Else, type 0: ")
+        if is_store_manager != "0" and is_store_manager != "1":
+            print("Invalid input. Please try again. ")
+            continue
+        phone_number = input("Enter phone number: ")
+        query = """
+            CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        try:
+            cursor.execute(query, (username, password, 0, first_name, last_name, is_store_manager, phone_number, None))
+            conn.commit()
+            check_query = "SELECT username, is_admin FROM user_info WHERE username = %s"
+            print(f"User '{result[0]}' created successfully. ")
+            break
 
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
+        except mysql.connector.Error as err:
+            sys.stderr.write(f"Error: {err}\n")
+        finally:
+            cursor.close()
 
 def get_contact_email(conn, username):
     """
@@ -632,7 +653,22 @@ def login_interface(conn):
         cursor = conn.cursor()
         print("Welcome! Please log in as a client.")
         username = input("Enter username: ")
+        if username == "":
+            print("You did not enter an username. Please try again. ")
+            continue
+        
+        # checks to make sure username is in the database
+        check_query = "SELECT username FROM user_info WHERE username = %s"
+        cursor.execute(check_query, (username,))
+        result = cursor.fetchone()
+        if not result:
+            print("Username does not exist. Please try again. ")
+            continue
+        
         password = input("Enter password: ")
+        if password == "":
+            print("You did not enter a password. Please try again. ")
+            continue
         
         query = """
             SELECT authenticate(%s, %s)
@@ -650,7 +686,8 @@ def login_interface(conn):
                 print("You are registered as an admin. Please use the admin interface.")
                 # return 1  # Regular user
             else:
-                print("Invalid username or password.")
+                print("Invalid password. Please try again. ")
+                continue
                 # return 0  # Authentication failed
 
         except mysql.connector.Error as err:
