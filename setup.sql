@@ -1,8 +1,6 @@
 -- clean up old tables
 -- must drop tables with foreign keys first 
 -- due to referential integrity constraints
-DROP VIEW IF EXISTS sales_summary_by_age_group;
-
 DROP TABLE IF EXISTS customer_visits;
 DROP TABLE IF EXISTS purchase;
 DROP TABLE IF EXISTS popularity;
