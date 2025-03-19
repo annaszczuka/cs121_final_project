@@ -346,6 +346,7 @@ def get_more_age_analysis(conn):
     finally:
         cursor.close()
         
+# REMEMBER TO ADD CASES THAT CHECK IF THE TYPE IS CORRECT SO THAT WE DONT GET A SQL ERROR
 def get_specific_store_analysis(conn, store_id, store_location):
     """
     Fetches the number of open stores for a store chain (store_count) 
@@ -357,6 +358,10 @@ def get_specific_store_analysis(conn, store_id, store_location):
         cursor.execute("SELECT store_count(%s);", (store_id,))
         store_count_result = cursor.fetchone()
         num_open_stores = store_count_result[0] if store_count_result else 0
+        
+        if num_open_stores == 0:
+            print(f"Store ID: {store_id} at Location: {store_location} is not in the database.")
+            return
 
         cursor.execute("SELECT store_score(%s);", (store_id,))
         store_score_result = cursor.fetchone()
@@ -449,7 +454,9 @@ def login_interface(conn):
             sys.stderr.write(f"Error: {err}\n")
         finally:
             cursor.close()
-        input("\nPress Enter to try logging in again...")
+        ans = input("\nPress Enter to try logging in again or type exit to return to the main page: ")
+        if ans == "exit":
+            break
 
 # ----------------------------------------------------------------------
 # Command-Line Functionality
