@@ -34,6 +34,8 @@ CREATE TABLE store (
     store_id         INT,
     -- city store is located in, all stores are located in U.S.A
     store_location   VARCHAR(255),
+    -- compamy name of the store chain
+    store_chain_name VARCHAR(50),
     -- year the specific store had grand opening
     year_opened      YEAR NOT NULL, 
     PRIMARY KEY(store_id, store_location)

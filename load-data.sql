@@ -8,7 +8,7 @@ CREATE TABLE staging_data (
     product_category VARCHAR(255),
     product_price_usd FLOAT,
     purchase_date DATE, 
-    store_id INT, 
+    store_id INT,  
     store_location VARCHAR(255),
     payment_method VARCHAR(255),
     discount_percent INT,
@@ -23,7 +23,8 @@ CREATE TABLE staging_data (
     purchase_id VARCHAR(7), 
     product_id VARCHAR(7), 
     visit_date DATE, 
-    purchased_product_price_usd NUMERIC(6,2)
+    purchased_product_price_usd NUMERIC(6,2),
+    store_chain_name VARCHAR(50)
 );
 
 SET SESSION sql_mode = '';
@@ -48,12 +49,13 @@ WHERE customer_id IS NOT NULL;
 
 -- ensure no duplicate store entries in staging_data before inserting (deduplicated)
 CREATE TEMPORARY TABLE distinct_store_staging_data AS
-SELECT DISTINCT store_id, store_location, year_opened
+SELECT DISTINCT store_id, store_location, store_chain_name, year_opened
 FROM staging_data;
 
 -- Insert into store
-INSERT INTO store (store_id, store_location, year_opened)
-SELECT store_id, store_location, year_opened FROM distinct_store_staging_data;
+INSERT INTO store (store_id, store_location, store_chain_name, year_opened)
+SELECT store_id, store_location, store_chain_name, year_opened 
+FROM distinct_store_staging_data;
 
 DROP TEMPORARY TABLE distinct_store_staging_data;
 
