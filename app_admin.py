@@ -80,13 +80,39 @@ def get_conn():
 # ----------------------------------------------------------------------
 
 # Adding transaction changes inventory for all 
+
+def get_next_purchase_id(conn):
+    """
+    Retrieves the next available purchase ID by finding the highest purchase_id
+    in the purchase table and incrementing it.
+    """
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT MAX(purchase_id) FROM purchase;")  
+        result = cursor.fetchone()
+
+        # If there are no purchases in the database, start from 1
+        next_purchase_id = (int(result[0]) + 1) if result[0] is not None else 1
+        return next_purchase_id
+
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+        return None  # Return None in case of error
+
+    finally:
+        cursor.close()
+
 def add_new_transaction(conn):
     """
     Allows an admin to add a new transaction manually into the database.
     """
     cursor = conn.cursor()
-    print_section_header("Transaction Page")
-    print("Adding a New Transaction")
+    print_section_header("Purchase Page")
+    print("Adding a New Purchase.")
+    print("\n1) This must be at an existing store by an existing customer.")
+    print("\n2) The product must be sold at said store.")
+    print(f"\n3) The next available purchase ID is {get_next_purchase_id(conn)}\n")
 
     # Ask the user to input the data for the transaction they want to add. Here are a few examples.
     purchase_id = input("Enter Purchase ID: ").strip()
@@ -181,7 +207,6 @@ def view_store_performance(conn):
     and average foot traffic per store.
     """
     cursor = conn.cursor()
-    print_section_header("Store Performance Page")
 
     # Query to display the store performance reports including revenue, total transactions,
     # and average foot traffic per store.
@@ -222,15 +247,39 @@ def view_store_performance(conn):
             print("No store performance data available.")
         else:
             headers = ["Store ID", "Location", "Total Transactions", "Total Revenue ($)", "Avg Foot Traffic"]
-            table = [list(row) for row in results]
+            page_size = 10 
+            total_rows = len(results)
+            total_pages = (total_rows + page_size - 1) // page_size 
+            start = 0
+            page_num = 1
 
-            print("\nStore Performance Report:")
-            print(tabulate(table, headers=headers, tablefmt="pretty"))
+            while start < total_rows:
+                end = start + page_size
+                table = [list(row) for row in results[start:end]]
+                print_section_header("Store Performance Page")
+                
+                print("You are viewing the store performance report:")
+                print(tabulate(table, headers=headers, tablefmt="pretty"))
+
+                print(f"\nPage {page_num} of {total_pages}")
+
+                if end >= total_rows:
+                    break
+                
+                user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
+                if user_input != 'n':
+                    break
+
+                start += page_size 
+                page_num += 1  
+            # table = [list(row) for row in results]
+
+            # print("You are viewing the store performance report:")
+            # print(tabulate(table, headers=headers, tablefmt="pretty"))
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
-        conn.close()
 
 def view_materialized_store_sales(conn):
     """
@@ -238,7 +287,6 @@ def view_materialized_store_sales(conn):
     Result shows 10 rows per page. Press N to move onto next page 
     or any other key to quit
     """
-    print_section_header("View Page")
     cursor = conn.cursor()
     query = """
         SELECT store_id, total_sales, 
@@ -265,6 +313,7 @@ def view_materialized_store_sales(conn):
 
         while start < total_rows:
             end = start + page_size
+            print_section_header("View Page")
             table = [list(row) for row in results[start:end]]
             
             print("\nStore Sales Statistics")
