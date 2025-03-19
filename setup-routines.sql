@@ -6,9 +6,9 @@ DROP FUNCTION IF EXISTS store_count;
 DROP FUNCTION IF EXISTS store_score; 
 DROP TABLE IF EXISTS mv_store_sales_stats;
 DROP PROCEDURE IF EXISTS sp_store_stat_new_sale;
-DROP TRIGGER trg_store_sale_insert; 
+DROP TRIGGER IF EXISTS trg_store_sale_insert; 
 DROP PROCEDURE IF EXISTS update_inventory;
-DROP VIEW sales_summary_by_age_group;
+DROP VIEW IF EXISTS sales_summary_by_age_group;
 
 -- Returns a VARCHAR email address for an administrator and a client 
 -- If the user is an administrator, it adds a fixed domain @retail_stats.com 
