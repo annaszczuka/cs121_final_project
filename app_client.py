@@ -25,6 +25,9 @@ import mysql.connector
 # error-handling
 import mysql.connector.errorcode as errorcode
 from tabulate import tabulate
+import re
+from abstracted import check_user_or_pass, print_divider, print_lines, print_section_header
+
 
 # Debugging flag to print errors when debugging that shouldn't be visible
 # to an actual client. ***Set to False when done testing.***
@@ -76,7 +79,8 @@ def get_conn():
 
 def transition(conn, type_stats):
     while True:
-        print("\n We hope you had a great analysis!")
+        print_section_header("Transition Page")
+        print("We hope you had a great analysis!")
         print("\n What would you like to do now? ")
         print(f"  (a) - Continue analyzing {type_stats} statistics")
         print("  (b) - Go back to main page")
@@ -104,7 +108,8 @@ def most_popular_payment_method(conn):
     Finds the most commonly used payment method for each store.
     """
     cursor = conn.cursor()
-    print("\nWelcome!You are viewing the most popular payment methods per store. ")
+    print_section_header("Store Analysis Page")
+    print("Welcome!You are viewing the most popular payment methods per store. ")
     query = """
         SELECT p.store_id, 
             p.store_location, 
@@ -117,9 +122,12 @@ def most_popular_payment_method(conn):
     try:
         cursor.execute(query)
         results = cursor.fetchall()
-        print("Most Popular Payment Methods Per Store:")
-        for row in results:
-            print(f"Store ID: {row[0]}, Store Location: {row[1]}, Payment Method: {row[2]}, Usage Count: {row[3]}")
+        if results:
+            headers = ["Store ID", "Store Location", "Payment Method", "Usage Count"]
+            print("\nMost Popular Payment Methods Per Store:")
+            print(tabulate(results, headers=headers, tablefmt="pretty"))  # Clean and formatted output
+        else:
+            print("\nNo results found.\n")
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
@@ -127,7 +135,8 @@ def most_popular_payment_method(conn):
 
 def get_total_purchases_per_age_group(conn):
     cursor = conn.cursor()
-    print("\nWelcome! You are viewing the total number of purchases by age group.")
+    print_section_header("Age Analysis Page")
+    print("Welcome! You are viewing the total number of purchases by age group.")
 
     query = """
             SELECT
@@ -156,13 +165,15 @@ def get_age_stats(conn):
     After viewing the table, the user can ask further questions related to age or gender statistics.
     """
     while True:
-        print("\nWelcome! You are analyzing age statisicts! ")
+        print_section_header("Age Menu")
+        print("Welcome! You are analyzing age statisicts! ")
         print("\nChoose the type of age analysis you want to perform:")
         print("  (a) - Get minimum and maximum age groups for each product category")
         print("  (b) - Get most popular store chain among age groups based on number of total purchases")
         print("  (c) - Compare purchase of wants versus needs among age groups")
         print("  (d) - Get total purchases based on age group")
-        print("  (e) - Quit")
+        print("  (e) - Return to menu page")
+        print("  (f) - Quit")
         
         ans = input("Enter an option: ").lower()
         if ans == 'a':
@@ -178,6 +189,8 @@ def get_age_stats(conn):
             get_total_purchases_per_age_group(conn)
             transition(conn, "age")
         elif ans == 'e':
+            show_client_options(conn)
+        elif ans == 'f':
             quit_ui()
         else:
             print("Invalid option. Please try again. ")
@@ -187,7 +200,8 @@ def get_age_stats(conn):
 
 def get_total_avg_per_gender(conn):
     cursor = conn.cursor()
-    print("\nWelcome! You are viewing the total number of purchases and average purchase price by gender.")
+    print_section_header("Gender Analysis Page")
+    print("Welcome! You are viewing the total number of purchases and average purchase price by gender.")
     query = """
                 SELECT c.gender, 
                         COUNT(p.purchase_id) AS total_purchases,
@@ -201,12 +215,11 @@ def get_total_avg_per_gender(conn):
         cursor.execute(query)
         results = cursor.fetchall()
         print("\nRetail Statistics by Gender:")
-        print("------------------------------------------------")
-        print("Gender | Total Purchases | Avg Spent Per Transaction ($)")
-        print("------------------------------------------------")
-        for row in results:
-            print(f"{row[0]} | {row[1]} | {row[2]:.2f}")
-        print("------------------------------------------------")
+        if results:
+            headers = ["Gender", "Total Purchases", "Avg Spent Per Transaction ($)"]
+            print("\n" + tabulate(results, headers=headers, tablefmt="pretty")) 
+        else:
+            print("\nNo results found.\n")
 
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
@@ -218,12 +231,14 @@ def get_gender_stats(conn):
     Displays statistics based on gender, showing how different genders shop.
     """
     while True:
+        print_section_header("Gender Menu")
         cursor = conn.cursor()
-        print("\nWelcome! You are analyzing gender statistics! ")
+        print("Welcome! You are analyzing gender statistics! ")
         print("\nChoose the type of gender analysis you want to perform:")
         print("  (a) - Get total purchases and avg purchase price for each gender")
         print("  (b) - Get gender statistics based on product category")
-        print("  (c) - Quit")
+        print("  (c) - Return to menu page")
+        print("  (d) - Quit")
         
         ans = input("Enter an option: ").lower()
         if ans == 'a':
@@ -241,6 +256,8 @@ def get_gender_stats(conn):
                 transition(conn, "gender")
                 break
         elif ans == 'c':
+            show_client_options(conn)
+        elif ans == 'd':
             quit_ui()
         else:
             print("Invalid option. Please try again. ")
@@ -249,7 +266,8 @@ def get_gender_stats(conn):
         
 def get_many_stats_per_store(conn):
     cursor = conn.cursor()
-    print("\nWelcome! You are viewing retail statistics by store, including total transactions, total revenue, and average foot traffic.")
+    print_section_header("Store Analysis Page")
+    print("Welcome! You are viewing retail statistics by store, including total transactions, total revenue, and average foot traffic.")
     query = """
             WITH purchase_summary AS (
                 SELECT store_id,
@@ -283,13 +301,12 @@ def get_many_stats_per_store(conn):
     try:
         cursor.execute(query)
         results = cursor.fetchall()
-        print("\nRetail Statistics by Store:")
-        print("------------------------------------------------")
-        print("Store ID | Store Location | Total Purchases | Total Revenue | Avg Foot Traffic ($)")
-        print("------------------------------------------------")
-        for row in results:
-            print(f"{row[0]} | {row[1]} | {row[2]} | {row[3]:.2f} | {row[4]:.2f}")
-        print("------------------------------------------------")
+        if results:
+            headers = ["Store ID", "Store Location", "Total Purchases", "Total Revenue ($)", "Avg Foot Traffic"]
+            print("\nRetail Statistics by Store:")
+            print(tabulate(results, headers=headers, tablefmt="pretty"))  # Structured table format
+        else:
+            print("\nNo results found.\n")
 
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
@@ -301,13 +318,15 @@ def get_store_stats(conn):
     Displays statistics based on stores, beneficial for store manager clients.
     """
     while True:
+        print_section_header("Store Menu")
         cursor = conn.cursor()
-        print("\nWelcome! You are analyzing store statisicts! ")
+        print("Welcome! You are analyzing store statisicts! ")
         print("\nChoose the type of store analysis you want to perform:")
         print("  (a) - Get the most popular payment method for each store")
         print("  (b) - General revenue statistics, including total transactions, total revenue, and average foot traffic. ")
         print("  (c) - Get store statistics based on store_id")
-        print("  (d) - Quit")
+        print("  (d) - Return to menu page")
+        print("  (e) - Quit")
       
         ans = input("Enter an option: ").lower()
         if ans == 'a':
@@ -318,11 +337,37 @@ def get_store_stats(conn):
             get_many_stats_per_store(conn)
             transition(conn, "store")
         elif ans == 'c':
-            print("Analyzing Store Statistics")
-            print("Get store stats based on store id and location: ")
-            store_id = input("What store id are you interested in? ")
-            get_specific_store_analysis(conn, store_id)
+            while True: 
+                print("Analyzing Store Statistics")
+                print("Get store stats based on store id and location: ")
+                store_id = input("What store id are you interested in? ")
+                
+                if not store_id.isdigit():
+                    print("Invalid input. Store ID must be a number. Please try again. ")
+                    continue
+                
+                store_id = int(store_id)
+
+                if store_id < 1 or store_id > 999999: 
+                    print("Invalid store ID. It must be between 1 and 999999. Please try again. ")
+                    continue
+                try:
+                    cursor.execute("SELECT store_count(%s);", (store_id,))
+                    store_count_result = cursor.fetchone()
+                    num_open_stores = store_count_result[0] if store_count_result else 0
+                    
+                    if num_open_stores == 0:
+                        print(f"Store ID: {store_id} is not in the database.")
+                        continue
+                except mysql.connector.Error as err:
+                    sys.stderr.write(f"Error: {err}\n")
+        
+                get_specific_store_analysis(conn, store_id)
+                transition(conn, "store")
+                break
         elif ans == 'd':
+            show_client_options(conn)
+        elif ans == 'e':
             quit_ui()
         else:
             print("Invalid option. Please try again. ")
@@ -333,7 +378,8 @@ def get_more_gender_analysis(conn, product_category):
     Counts the number of male, female, and non-binary customers who purchased Health and Beauty products.
     """
     cursor = conn.cursor()
-    print(f"\nWelcome! You are viewing the total purchase count for each gender for the product category {product_category}. ")
+    print_section_header("Gender Analysis Page")
+    print(f"Welcome! You are viewing the total purchase count for each gender for the product category {product_category}. ")
     query = """
         SELECT c.gender, 
             COUNT(*) AS purchase_count
@@ -352,9 +398,10 @@ def get_more_gender_analysis(conn, product_category):
             print(f"\nError: No purchases found for the product category '{product_category}'.")
             print("Please check the spelling or try a different category.")
             return
-        print(f"{product_category} Product Purchases by Gender:")
-        for row in results:
-            print(f"Gender: {row[0]}, Purchase Count: {row[1]}")
+
+        headers = ["Gender", "Purchase Count"]
+        print(f"\n{product_category} Product Purchases by Gender:")
+        print(tabulate(results, headers=headers, tablefmt="pretty"))
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
@@ -363,7 +410,8 @@ def get_more_gender_analysis(conn, product_category):
 
 def get_min_max_buyers_per_product(conn):
     cursor = conn.cursor()
-    print("\nWelcome! You are viewing the min and max buyer age group for each product category. ")
+    print_section_header("Age Analysis Page")
+    print("Welcome! You are viewing the min and max buyer age group for each product category. ")
     query = """
             SELECT product_category, 
                    MIN(age_range) AS youngest_buyers,
@@ -392,7 +440,8 @@ def get_min_max_buyers_per_product(conn):
 
 def get_wants_versus_needs_per_age_group(conn):
     cursor = conn.cursor()
-    print("\nWelcome! You are viewing the spending breakdown of necessities vs. non-necessities by age group.")
+    print_section_header("Age Analysis Page")
+    print("Welcome! You are viewing the spending breakdown of necessities vs. non-necessities by age group.")
     query = """
             SELECT age_range, 
                     SUM(CASE WHEN product_category IN ('Groceries', 'Health & Beauty') 
@@ -429,7 +478,8 @@ def get_most_popular_store_chains_per_age_group(conn):
     Determines the most common store location visited by different age groups.
     """
     cursor = conn.cursor()
-    print("\nWelcome! You are viewing the most common store location visited by different age groups. ")
+    print_section_header("Age Analysis Page")
+    print("Welcome! You are viewing the most common store location visited by different age groups. ")
     # Specify age group categories up to 50 and then just classify as above 50 years. Assume customers
     # must be at least 18 (adult) to make a purchase.
 
@@ -506,7 +556,8 @@ def get_specific_store_analysis(conn, store_id):
     Fetches the number of open stores for a store chain (store_count) 
     and calculates the store score (store_score) for a specific store
     """
-    print(f"\nWelcome! You are viewing the number of chains and store score for store with store_id {store_id}")
+    print_section_header("Store Analysis Page")
+    print(f"Welcome! You are viewing the number of chains and store score for store with store_id {store_id}")
     print("\nStore score represents the success of the store in relation to foot traffic and transactions. ")
 
     cursor = conn.cursor()
@@ -515,10 +566,6 @@ def get_specific_store_analysis(conn, store_id):
         cursor.execute("SELECT store_count(%s);", (store_id,))
         store_count_result = cursor.fetchone()
         num_open_stores = store_count_result[0] if store_count_result else 0
-        
-        if num_open_stores == 0:
-            print(f"Store ID: {store_id} is not in the database.")
-            return
 
         cursor.execute("SELECT store_score(%s);", (store_id,))
         store_score_result = cursor.fetchone()
@@ -541,7 +588,9 @@ def get_specific_inventory_analysis(conn):
     """
     Retrieves products with the highest price in inventory
     """
+    print_section_header("Most Expensive Items")
     cursor = conn.cursor()
+    print("Welcome! You are viewing the 10 most expensive products in inventory of each store. ")
     query = """
         SELECT 
             inventory.product_id, 
@@ -569,7 +618,6 @@ def get_specific_inventory_analysis(conn):
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
-        conn.close()
     
 def view_materialized_store_sales(conn):
     """
@@ -577,6 +625,7 @@ def view_materialized_store_sales(conn):
     Result shows 10 rows per page. Press N to move onto next page 
     or any other key to quit
     """
+    print_section_header("View Page")
     cursor = conn.cursor()
     query = """
         SELECT store_id, total_sales, 
@@ -627,25 +676,16 @@ def view_materialized_store_sales(conn):
     
 def create_account_client(conn):
     while True:
+        print_section_header("Create Account")
         cursor = conn.cursor()
         username = input("Enter username: ")
-        if username == "":
-            print("You did not enter an username. Please try again. ")
-            continue
-        
-        # checks to make sure username is not already taken. 
-        # Even if the username is an admin, we do not allow for duplicate usernames. 
-        check_query = "SELECT username FROM user_info WHERE username = %s"
-        cursor.execute(check_query, (username,))
-        result = cursor.fetchone()
-        if result:
-            print("Username is already taken. Please try again.")
+        if not check_user_or_pass(conn, username, "username", 0):
             continue
         
         password = input("Enter password: ")
-        if password == "":
-            print("You did not enter a password. Please try again. ")
+        if not check_user_or_pass(conn, password, "password", 0):
             continue
+   
         first_name = input("Enter first name: ")
         if first_name == "":
             print("You did not enter a first name. Please try again. ")
@@ -698,6 +738,7 @@ def get_store_chain(conn, store_id):
     """
     Given a store_id, retrieves the corresponding store chain name
     """
+    print_section_header("Store Chain Info")
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT store_id_to_store_chain(%s);", (store_id,))
@@ -722,25 +763,17 @@ def get_store_chain(conn, store_id):
     
 def login_interface(conn):
     while True:
+        print_section_header("Login Page")
         cursor = conn.cursor()
         print("Welcome! Please log in as a client.")
         username = input("Enter username: ")
-        if username == "":
-            print("You did not enter an username. Please try again. ")
-            continue
-        
-        # checks to make sure username is in the database
-        check_query = "SELECT username FROM user_info WHERE username = %s"
-        cursor.execute(check_query, (username,))
-        result = cursor.fetchone()
-        if not result:
-            print("Username does not exist. Please try again. ")
+        if not check_user_or_pass(conn, username, "username", 1):
             continue
         
         password = input("Enter password: ")
-        if password == "":
-            print("You did not enter a password. Please try again. ")
+        if not check_user_or_pass(conn, password, "password", 1):
             continue
+        
         
         query = """
             SELECT authenticate(%s, %s)
@@ -787,13 +820,15 @@ def show_client_options(conn):
     # Below are some examples of questions the user can ask. We plan on making C, D, and E more broad categories
     # to make it easier to conduct robust analysis of data using this interface.
     while True:
+        print_section_header("Menu Page")
         print('What would you like to do to explore retail data? ')
         print('  (A) - Get Age Statistics')
         print('  (B) - Get Gender Statistics')
         print('  (C) - Get Store Statistics')
         print('  (D) - Get Overall Store Statistics. This outputs a view.')
         print('  (E) - Find Chain Store')
-        print('  (q) - quit')
+        print('  (F) - Get Products with the Highest Price in Inventory of a Store')
+        print('  (q) - Quit')
         print()
         ans = input('Enter an option: ').lower()
         if ans == 'a':
@@ -807,61 +842,15 @@ def show_client_options(conn):
         elif ans == 'e':
             store_id = input("Please enter store id: ").strip()
             get_store_chain(conn, store_id)
+        elif ans == 'f':
+            get_specific_inventory_analysis(conn)
         elif ans == 'q':
             quit_ui()
         else:
             print("Invalid option. Please try again.")
         input("\nPress Enter to return to the Client Menu...")
 
-
-def data_science_questions(conn):
-    """
-    After viewing age statistics, allows users to explore further statistics related to gender or age.
-    """
-    # Here are examples of specific statistics the user can ask for upon choosing and broad category such as
-    # age or gender first. They also have the option to return back to the main menu to continue analysis using a
-    # different category.
-
-    # For example, if the user chooses to explore gender_stats, one piece of information they can get is executing a
-    # query that shows how different genders shop by calculating the average product prices, total profit,
-    # and total number of purchases.
-
-    # Another example is if the user chooses to explore age stats, they can get a list of the most common products
-    # purchased per age group.
-
-    # We also plan to add user defined functions in SQL to allow the users of this application to get more diverse
-    # answers, such as customer profitability score based on spending behavior and store profitability.
-    # Another idea we have is to categorize a particular customer based on their spending score in relation to other
-    # customers.
-    # Another useful UDF would be to compare competitor price with a store's product for pricing strategy analysis.
-
-    # Additionally, we would like to display graphs to further help researchers analyze retail data.
-    # For example, a scatterplot could help display relationships of each attribute with profit.
-    # We can also output a plot of the average spending score by age group to allow a visual display of whether there is
-    # a difference in the average spending between different age groups.
-    # We can also display a plot of the total profit made by each product category to allow users to analyze whether
-    # there is a particular category that makes significantly more profit.
-    # We can also display a correlation plot to analyze what attributes have the highest correlation and lowest.
-    # For example, one might wonder whether Profit and Product Price are correlated, and this plot will make it really
-    # easy to check that.
-    while True:
-        print("\nWhat would you like to explore more?")
-        print("  (4) - View Inventory Analysis")
-        print("  (b) - Back to Main Menu")
-        print("  (q) - Quit")
-
-        ans = input("Enter an option: ").lower()
-
-        if ans == '4':
-            get_specific_inventory_analysis(conn)
-        elif ans == 'b':
-            show_client_options(conn)
-        elif ans == 'q':
-            quit_ui()
-        else:
-            print("Invalid option. Please try again.")
-        print("\nPress enter to return to the menu")
-
+  
 def quit_ui():
     """
     Quits the program, printing a goodbye message to the user.
@@ -877,12 +866,13 @@ def main(conn):
     Main function for starting things up.
     """
     while True:
-        print("\n=== Client Page ===")
+        print_section_header("Client Page")
         print("Would you like to: ")
         print("1. Create an account")
         print("2. Login")
         print("3. Exit")
         
+        print_lines()
         choice = input("Enter your choice (1/2/3): ").strip()
         
         if choice == '1':
