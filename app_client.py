@@ -116,39 +116,18 @@ def get_age_stats(conn):
 
         if choice == "1":
             query = """
-                SELECT age_range, 
-                       SUM(CASE WHEN product_category IN ('Groceries', 'Health & Beauty') THEN total_sales ELSE 0 END) 
-                            AS necessities,
-                       SUM(CASE WHEN product_category NOT IN ('Groceries', 'Health & Beauty') THEN total_sales ELSE 0 END) 
-                            AS non_necessities
-                FROM sales_summary_by_age_group
-                GROUP BY age_range
-                ORDER BY age_range;
+            SELECT
+                age_range,
+                SUM(total_sales) AS total_sales
+            FROM sales_summary_by_age_group
+            GROUP BY age_range
+            ORDER BY total_sales DESC;
             """
-
-
-            # """
-            #     SELECT
-            #         CASE
-            #             WHEN c.age BETWEEN 18 AND 25 THEN '18-25'
-            #             WHEN c.age BETWEEN 26 AND 35 THEN '26-35'
-            #             WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
-            #             ELSE '50+'
-            #         END AS age_group,
-            #         COUNT(p.purchase_id) AS total_purchases,
-            #         AVG(p.purchased_product_price_usd) AS avg_spent_per_purchase
-            #     FROM customer c
-            #     JOIN purchase p
-            #         ON c.customer_id = p.customer_id
-            #     GROUP BY age_group
-            #     ORDER BY age_group;
-            # """
-
             try:
                 cursor.execute(query)
                 results = cursor.fetchall()
                 if results:
-                    headers = ["Age Group", "Total Purchases", "Avg Spent Per Purchase ($)"]
+                    headers = ["Age Group", "Total Purchases"]
                     print("\n" + tabulate(results, headers=headers, tablefmt="grid") + "\n")
                 else:
                     print("\nNo results found.\n")
@@ -223,7 +202,7 @@ def get_store_stats(conn):
         print("2. Analyze general revenue statistics.")
         print("3. More in depth analysis")
         print("4. Quit")
-        choice = input("Enter your choice (1 or 2): ")
+        choice = input("Enter your choice (1 or 2 or 3): ")
         
         
         if choice == "1":
@@ -344,6 +323,39 @@ def get_min_max_buyers_per_product(conn):
         cursor.close()
 
 
+def get_wants_versus_needs_per_age_group(conn):
+    cursor = conn.cursor()
+    query = """
+            SELECT age_range, 
+                    SUM(CASE WHEN product_category IN ('Groceries', 'Health & Beauty') 
+                    THEN total_sales ELSE 0 END) 
+                        AS necessities,
+                    SUM(CASE WHEN product_category NOT IN ('Groceries', 'Health & Beauty') 
+                    THEN total_sales ELSE 0 END) 
+                        AS non_necessities
+            FROM sales_summary_by_age_group
+            GROUP BY age_range
+            ORDER BY age_range;
+            """
+    try:
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        if results:
+            headers = ["Age Range", "Spent on Necessities", "Spent on Non Necessities"]
+            print("\n" + tabulate(results, headers=headers, tablefmt="grid") + "\n")
+        else:
+            print("\nNo results found.\n")
+
+        # ask if user wants to delve deeper into the data to derive specific insights.
+        data_science_questions(conn)
+
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
+
 def get_most_popular_store_chains_per_age_group(conn):
     """
     Determines the most common store location visited by different age groups.
@@ -407,7 +419,7 @@ def get_most_popular_store_chains_per_age_group(conn):
     try:
         cursor.execute(query)
         results = cursor.fetchall()
-        headers = ["Age Group", "Store Location", "Visit Count"]
+        headers = ["Age Group", "Store Chain", "Visit Count"]
         if results:
             print("\n" + tabulate(results, headers=headers, tablefmt="grid") + "\n")
         else:
@@ -452,6 +464,41 @@ def get_specific_store_analysis(conn, store_id, store_location):
     finally:
         cursor.close()
 
+# WORKING ON RN
+def get_specific_inventory_analysis(conn):
+    """
+    Retrieves products with the highest price in inventory
+    """
+    cursor = conn.cursor()
+    query = """
+        SELECT 
+            inventory.product_id, 
+            store.store_chain_name,
+            inventory.store_location, 
+            inventory.product_price_usd
+        FROM inventory JOIN store 
+        ON inventory.store_id = store.store_id 
+        AND inventory.store_location = store.store_location
+        ORDER BY inventory.product_price_usd DESC
+        LIMIT 10;
+    """
+    try:
+        cursor.execute(query)
+        results = cursor.fetchall()
+        print("\n Store Sale Statistics")
+        headers = ["Product ID", "Store Chain", "Location", "Product Price"]
+        table = []
+        for row in results:
+            table.append([row[0], row[1], row[2], row[3]])
+
+        # Print the table using tabulate
+        print(tabulate(table, headers=headers, tablefmt="pretty"))
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+        conn.close()
+    
 def view_materialized_store_sales(conn):
     """
     View the materialized view of store sales statistics
@@ -467,15 +514,33 @@ def view_materialized_store_sales(conn):
     try:
         cursor.execute(query)
         results = cursor.fetchall()
-        print("\nMaterialized View: Store Sales Statistics")
-        print("-------------------------------------------------------------")
-        print("Store ID | Total Sales ($) | Num Purchases " +
-      "| Avg Discount (%) | Min Price ($) | Max Price ($)")
-        print("-------------------------------------------------------------")
-        for row in results:
-            print(f"{row[0]} | {row[1]:.2f} | {row[2]} | {row[3]:.2f} | " + 
-                " {row[4]:.2f} | {row[5]:.2f}")
-        print("-------------------------------------------------------------")
+
+        if not results:
+            print("No sales data available.")
+            return
+
+        headers = ["Store ID", "Total Sales ($)", "Num Purchases", "Avg Discount (%)", "Min Price ($)", "Max Price ($)"]
+
+        page_size = 10
+        start = 0
+        while start < len(results):
+            end = start + page_size
+            table = [list(row) for row in results[start:end]]
+            
+            # Print the current page
+            print("\nStore Sales Statistics")
+            print(tabulate(table, headers=headers, tablefmt="pretty"))
+
+            # Check if there's more data
+            if end >= len(results):
+                break
+            
+            # Ask user to press 'N' to continue
+            user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
+            if user_input != 'n':
+                break
+
+            start += page_size  # Move to the next page
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
@@ -488,20 +553,14 @@ def create_account_client(conn):
     password = input("Enter password: ")
     first_name = input("Enter first name: ")
     last_name = input("Enter last name: ")
-    try:
-        cursor.execute("SELECT get_contact_email(%s)", (username,))  # Assuming not an admin (0)
-        email = cursor.fetchone()[0]  # Fetch the email from the query result
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-
-    is_store_manager = input("Are you a store manager? If Yes, type 1. Else, 0: ")
+    is_store_manager = input("Are you a store manager? If Yes, type 1. Else, type 0: ")
     phone_number = input("Enter phone number: ")
     query = """
-        CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s)
     """
     
     try:
-        cursor.execute(query, (username, password, 0, first_name, last_name, email, is_store_manager, phone_number, None))
+        cursor.execute(query, (username, password, 0, first_name, last_name, is_store_manager, phone_number, None))
         conn.commit()
         check_query = "SELECT username, is_admin FROM user_info WHERE username = %s"
         cursor.execute(check_query, (username,))
@@ -512,6 +571,42 @@ def create_account_client(conn):
         else:
             print("Failed to create the client account.")
 
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
+def get_contact_email(conn, username):
+    """
+    Given a username, retrieves the contact email of the person associated 
+    with the username
+    """
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT get_contact_email(%s);", (username,))
+        result = cursor.fetchone()
+        if result:
+            print(f"Username: {username}, Contact Email: {result[0]}")
+        else:
+            print(f"No associated email with given username: {username}")
+            print("Please check spelling or punctuation")
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
+def get_store_chain(conn, store_id):
+    """
+    Given a store_id, retrieves the corresponding store chain name
+    """
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT store_id_to_store_chain(%s);", (store_id,))
+        result = cursor.fetchone()
+        if result:
+            print(f"Store ID: {store_id}, Store Chain Name: {result[0]}")
+        else:
+            print(f"No associated store chain with given store_id: {store_id}")
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
@@ -582,6 +677,8 @@ def show_client_options(conn):
         print('  (B) - Get Gender Statistics')
         print('  (C) - Get Store Statistics')
         print('  (D) - Get Overall Store Statistics')
+        print('  (E) - Get Email')
+        print('  (F) - Find Chain Store')
         print('  (q) - quit')
         print()
         ans = input('Enter an option: ').lower()
@@ -593,6 +690,12 @@ def show_client_options(conn):
             get_store_stats(conn)
         elif ans == 'd':
             view_materialized_store_sales(conn)
+        elif ans == 'e':
+            username = input("Enter the username: ").strip()
+            get_contact_email(conn, username)
+        elif ans == 'f':
+            store_id = input("Please enter store id: ").strip()
+            get_store_chain(conn, store_id)
         elif ans == 'q':
             quit_ui()
         else:
@@ -635,6 +738,7 @@ def data_science_questions(conn):
         print("  (1) - View Gender-Specific Statistics")
         print("  (2) - View More Age-Based Analysis")
         print("  (3) - View Specific Store Analysis")
+        print("  (4) - View Inventory Analysis")
         print("  (b) - Back to Main Menu")
         print("  (q) - Quit")
 
@@ -649,19 +753,23 @@ def data_science_questions(conn):
             print("\nHow would you like to analyze Age Statistics:")
             print("  (a) - Get minimum and maximum age groups for each product category")
             print("  (b) - Get most popular store chain among age groups based on number of total purchases")
+            print("  (c) - Compare purchase of wants versus needs among age groups")
             ans = input("Enter an option: ").lower()
             if ans == 'a':
                 get_min_max_buyers_per_product(conn)
             if ans == 'b':
                 get_most_popular_store_chains_per_age_group(conn)
+            if ans == 'c':
+                get_wants_versus_needs_per_age_group(conn)
             print("Get most store chain where most items were purchased based on age group: ")
         elif ans == '3':
             print("Analyzing Store Statistics")
             print("Get store stats based on store id and location: ")
             store_id = input("What store id are you interested in? ")
             store_location = input("Are you interested in a specific location? ")
-            print()
             get_specific_store_analysis(conn, store_id, store_location)
+        elif ans == '4':
+            get_specific_inventory_analysis(conn)
         elif ans == 'b':
             show_client_options(conn)
         elif ans == 'q':

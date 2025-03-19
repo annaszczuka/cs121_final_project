@@ -1,12 +1,12 @@
 -- call procedure to add a user
 CALL sp_add_user('admin_username_engineer_john', 'securepass', 1, 'John', 
-'Doe', NULL, NULL, NULL, 'engineer');
+'Doe', NULL, NULL, 'engineer');
 CALL sp_add_user('jsmith', 'clientpass', 0, 'Jane', 'Smith', 
-'jane@example.com', 1, '123-456-7890', NULL);
+1, '123-456-7890', NULL);
 CALL sp_add_user('cbrown', 'snoopy', 0, 'Charlie', 'Brown', 
-'cbrown@gmail.com', 0, '111-222-3333', NULL);
+0, '111-222-3333', NULL);
 CALL sp_add_user('jwoodwell', 'securepass_woodwell', 1, 'James', 
-'Woodwell', NULL, NULL, NULL, 'engineer');
+'Woodwell', NULL, NULL, 'engineer');
 
 -- test authenticate function 
 -- Should return 0 (false)

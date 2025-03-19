@@ -9,32 +9,21 @@ DROP PROCEDURE IF EXISTS sp_store_stat_new_sale;
 DROP TRIGGER IF EXISTS trg_store_sale_insert; 
 DROP PROCEDURE IF EXISTS update_inventory;
 DROP VIEW IF EXISTS sales_summary_by_age_group;
+DROP FUNCTION IF EXISTS store_id_to_store_chain; 
 
 -- Returns a VARCHAR email address for an administrator and a client 
--- If the user is an administrator, it adds a fixed domain @retail_stats.com 
+-- It adds a fixed domain @retail_stats.com 
 -- to the username
--- If the user is a client, returns users contact email 
+-- as users must be part of the organization 
 DELIMITER !
 CREATE FUNCTION get_contact_email(
     -- input: user's username 
     username VARCHAR(30)
-    -- input: flag whether user is admin or client
-    -- is_admin TINYINT
 ) RETURNS VARCHAR(254) DETERMINISTIC -- email adddress can't exceed 254 char
 BEGIN
     -- store resulting email 
     DECLARE user_email VARCHAR(254);
     SET user_email = CONCAT(username, '@retail_stats.com');
-    -- IF is_admin = 1 THEN
-    --     -- in case of admin, append fixed domain to username to 
-    --     -- get employee email 
-    --     SET user_email = CONCAT(username, '@retail_stats.com');
-    -- ELSE
-    --     -- in case of client, query email
-    --     SELECT contact_email INTO user_email
-    --     FROM client 
-    --     WHERE client.username = username;
-    -- END IF;
 
     RETURN user_email;
 END !
@@ -44,11 +33,6 @@ DELIMITER ;
 -- test FUNCTION get_contact_email for an admin user
 -- expected output: jwoodwell@retail_stats.com
 SELECT get_contact_email('jwoodwell') AS email;
-
--- test FUNCTION get_contact_email for a client user
--- expected output: cbrown@gmail.com
-SELECT get_contact_email('cbrown') AS email;
-
 
 -- Calculates the numbers of stores that a store chain (defined by store_id)
 -- has open 
@@ -71,6 +55,21 @@ DELIMITER ;
 -- test FUNCTION store_count test case with store chain id 25 
 -- expected output: 5
 SELECT store_count(25) AS store_count;
+
+DELIMITER !
+CREATE FUNCTION store_id_to_store_chain(
+    -- input: store_id
+    store_id INT
+) RETURNS VARCHAR(50) DETERMINISTIC
+BEGIN
+    DECLARE store_chain VARCHAR(50);
+
+    SELECT store_chain_name INTO store_chain FROM store 
+    WHERE store.store_id = store_id LIMIT 1;
+    RETURN store_chain; 
+END !
+
+DELIMITER ;
 
 -- Calculates the sale price of a retailed object after applying 
 -- the discount percentage to the original price for a specific

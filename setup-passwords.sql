@@ -61,10 +61,8 @@ CREATE TABLE user_info (
 CREATE TABLE client (
     -- unique identifier for each client 
     username          VARCHAR(20) PRIMARY KEY,
-    -- unique contact email for the client
-    contact_email     VARCHAR(255) UNIQUE NOT NULL,
     -- indicates if client is a store manager
-    is_store_manager  BOOLEAN NOT NULL DEFAULT 0, 
+    is_store_manager  TINYINT NOT NULL DEFAULT 0, 
     -- optional phone number for source of client contact
     phone_number      VARCHAR(20), 
     FOREIGN KEY(username) REFERENCES user_info(username)
@@ -88,8 +86,6 @@ CREATE TABLE admin (
 DELIMITER !
 CREATE PROCEDURE sp_add_user(new_username VARCHAR(20), new_password VARCHAR(20),
 admin_status TINYINT, first_name VARCHAR(50), last_name VARCHAR(50),
--- only applicable for clients
-contact_email VARCHAR(255), 
 -- only applicable for clients
 is_store_manager TINYINT,
 -- only applicable for clients
@@ -126,8 +122,8 @@ BEGIN
     ELSE
       -- If client, insert into client table
       INSERT INTO 
-      client(username, contact_email, is_store_manager, phone_number) 
-      VALUES(new_username, contact_email, is_store_manager, phone_number);
+      client(username, is_store_manager, phone_number) 
+      VALUES(new_username, is_store_manager, phone_number);
     END IF;
   END IF;
 END !
