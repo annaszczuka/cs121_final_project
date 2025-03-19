@@ -101,12 +101,13 @@ BEGIN
 END !
 DELIMITER ; 
 
+
 -- test FUNCTION get_sale_price in case where discount is present
--- expected output: 131.61 
-SELECT get_sale_price(10, 227, 39, 625) AS sale_price;
+-- expected output: 809.78
+SELECT get_sale_price(0, 49, 35, 758) AS sale_price;
 -- test FUNCTION get_sale_price in case where discount is not present (or 0)
--- expected output: 205.49
-SELECT get_sale_price(1, 88, 47, 693) AS sale_price;
+-- expected output: 945.89 
+SELECT get_sale_price(100, 455, 4, 744) AS sale_price;
 
 
 -- view summarizes the total sales 
