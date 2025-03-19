@@ -244,7 +244,43 @@ DELIMITER ;
 -- sales statistics update accordingly
 CALL sp_store_stat_new_sale(1, 5.00, 0.00);
 
--- Handles new rows added to account table, updates stats accordingly
+-- A procedure to execute when updating the store inventory 
+-- Inputs: specific product quantity being change and the quantity change
+-- at a store at a specific location
+DELIMITER !
+CREATE PROCEDURE update_inventory(product_id INT, qty_change INT, 
+store_id INT, store_location VARCHAR(255))
+BEGIN
+    DECLARE curr_qty INT;
+
+    SELECT qty INTO curr_qty
+    FROM inventory
+    WHERE inventory.product_id = product_id
+    AND inventory.store_id = store_id
+    AND inventory.store_location = store_location;
+
+    -- do not update inventory if inventory becomes negative
+    IF (curr_qty + qty_change) < 0 THEN
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = 'Cannot update inventory';
+    ELSE
+        -- update inventory table to reflect quantity change
+        UPDATE inventory
+        SET qty = curr_qty + qty_change
+        WHERE inventory.product_id = product_id
+        AND inventory.store_id = store_id
+        AND inventory.store_location = store_location;
+    END IF;
+END !
+DELIMITER ;
+
+-- test procedure 
+-- output should have a net gain of 5 in quanitity
+CALL update_inventory(1, 20, 15, 'Philadelphia');
+CALL update_inventory(1, -15, 15, 'Philadelphia');
+
+-- Handles new rows added to purchase table, updates stats accordingly
+-- in the materialized view and the inventory table
 DELIMITER !
 CREATE TRIGGER trg_store_sale_insert
 AFTER INSERT ON purchase
@@ -259,44 +295,31 @@ BEGIN
     -- discount percent
     NEW.discount_percent
     );
+
+    CALL update_inventory(
+    NEW.product_id, -1, NEW.store_id, NEW.store_location 
+    ); 
 END !
 
 DELIMITER ;
 
 -- Insert data into tables to test trigger 
--- INSERT INTO store (store_id, store_location, year_opened)
--- VALUES (101, 'San Jose', 2015);
--- INSERT INTO product (product_id, product_category)
--- VALUES ('P12345', 'Health & Beauty');
--- INSERT INTO customer (age, gender, annual_income_usd, full_name)
--- VALUES (30, 'M', 50000.00, 'John Doe');
--- INSERT INTO inventory (product_id, store_id, store_location, qty, 
--- product_price_usd, product_cost_usd, competitor_price_usd)
--- VALUES ('P12345', 101, 'San Jose', 50, 25.00, 15.00, 22.00);
--- INSERT INTO popularity (store_id, store_location, visit_date, foot_traffic)
--- VALUES (101, 'San Jose', '2023-06-01', 200);
--- INSERT INTO purchase 
--- (purchase_id, product_id, store_id, customer_id, store_location, 
--- payment_method, discount_percent, txn_date, purchased_product_price_usd) 
--- VALUES 
--- ('P000123', 'P12345', 101, 1, 'San Jose', 'Credit Card', 20, 
--- '2023-06-01', 100.00);
--- INSERT INTO customer_visits (customer_id, store_id, store_location, is_favorite)
--- VALUES (1, 101, 'San Jose', 1);
-
--- A procedure to execute when updating the store inventory 
--- Inputs: specific product quantity being change and the quantity change
-DELIMITER !
-CREATE PROCEDURE update_inventory(product_id INT, qty_change INT)
-BEGIN
-    -- inventory table reflect quantity change
-    UPDATE inventory
-    SET qty = qty + qty_change 
-    WHERE product_id = product_id;
-END !
-DELIMITER ;
-
--- test procedure 
--- output should have a net gain of 5 in quanitity
-CALL update_inventory(1, 20);
-CALL update_inventory(1, -15);
+INSERT INTO store (store_id, store_location, year_opened)
+VALUES (101, 'San Jose', 2015);
+INSERT INTO product (product_id, product_category)
+VALUES ('P12345', 'Health & Beauty');
+INSERT INTO customer (age, gender, annual_income_usd, full_name)
+VALUES (30, 'M', 50000.00, 'John Doe');
+INSERT INTO inventory (product_id, store_id, store_location, qty, 
+product_price_usd, product_cost_usd, competitor_price_usd)
+VALUES ('P12345', 101, 'San Jose', 50, 25.00, 15.00, 22.00);
+INSERT INTO popularity (store_id, store_location, visit_date, foot_traffic)
+VALUES (101, 'San Jose', '2023-06-01', 200);
+INSERT INTO purchase 
+(purchase_id, product_id, store_id, customer_id, store_location, 
+payment_method, discount_percent, txn_date, purchased_product_price_usd) 
+VALUES 
+('P000123', 'P12345', 101, 1, 'San Jose', 'Credit Card', 20, 
+'2023-06-01', 100.00);
+INSERT INTO customer_visits (customer_id, store_id, store_location, is_favorite)
+VALUES (1, 101, 'San Jose', 1);
