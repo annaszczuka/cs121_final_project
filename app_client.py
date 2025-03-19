@@ -116,20 +116,26 @@ def get_age_stats(conn):
         if choice == "1":
             query = """
                 SELECT 
-                    CASE 
-                        WHEN c.age BETWEEN 18 AND 25 THEN '18-25'
-                        WHEN c.age BETWEEN 26 AND 35 THEN '26-35'
-                        WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
-                        ELSE '50+' 
-                    END AS age_group,
-                    COUNT(p.purchase_id) AS total_purchases,
-                    AVG(p.purchased_product_price_usd) AS avg_spent_per_purchase
-                FROM customer c
-                JOIN purchase p 
-                    ON c.customer_id = p.customer_id
-                GROUP BY age_group
-                ORDER BY age_group;
+                    
             """
+
+
+            # """
+            #     SELECT
+            #         CASE
+            #             WHEN c.age BETWEEN 18 AND 25 THEN '18-25'
+            #             WHEN c.age BETWEEN 26 AND 35 THEN '26-35'
+            #             WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
+            #             ELSE '50+'
+            #         END AS age_group,
+            #         COUNT(p.purchase_id) AS total_purchases,
+            #         AVG(p.purchased_product_price_usd) AS avg_spent_per_purchase
+            #     FROM customer c
+            #     JOIN purchase p
+            #         ON c.customer_id = p.customer_id
+            #     GROUP BY age_group
+            #     ORDER BY age_group;
+            # """
 
             try:
                 cursor.execute(query)
@@ -314,23 +320,15 @@ def get_more_age_analysis(conn):
     # must be at least 18 (adult) to make a purchase.
     query = """
         SELECT 
-            CASE 
-                WHEN c.age BETWEEN 18 AND 25 THEN '18-25'
-                WHEN c.age BETWEEN 26 AND 35 THEN '26-35'
-                WHEN c.age BETWEEN 36 AND 50 THEN '36-50'
-                ELSE '50+' 
-            END AS age_group,
-            s.store_id, 
+            sa.age_range AS age_group,
+            s.store_id,
             s.store_location,
             COUNT(*) AS visit_count
-        FROM customer_visits cv
-        JOIN customer c 
-            ON cv.customer_id = c.customer_id
+        FROM sales_summary_by_age_group sa
         JOIN store s 
-            ON cv.store_id = s.store_id 
-            AND cv.store_location = s.store_location
-        GROUP BY age_group, s.store_id, s.store_location
-        ORDER BY age_group, visit_count DESC;
+        ON sa.product_category = s.store_id -- Assuming product_category represents stores in some way
+        GROUP BY sa.age_range, s.store_id, s.store_location
+        ORDER BY sa.age_range, visit_count DESC;
     """
     try:
         cursor.execute(query)
