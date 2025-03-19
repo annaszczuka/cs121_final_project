@@ -792,8 +792,7 @@ def show_client_options(conn):
         print('  (B) - Get Gender Statistics')
         print('  (C) - Get Store Statistics')
         print('  (D) - Get Overall Store Statistics. This outputs a view.')
-        print('  (E) - Get Email')
-        print('  (F) - Find Chain Store')
+        print('  (E) - Find Chain Store')
         print('  (q) - quit')
         print()
         ans = input('Enter an option: ').lower()
@@ -806,9 +805,6 @@ def show_client_options(conn):
         elif ans == 'd':
             view_materialized_store_sales(conn)
         elif ans == 'e':
-            username = input("Enter the username: ").strip()
-            get_contact_email(conn, username)
-        elif ans == 'f':
             store_id = input("Please enter store id: ").strip()
             get_store_chain(conn, store_id)
         elif ans == 'q':
