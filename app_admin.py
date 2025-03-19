@@ -237,11 +237,11 @@ def create_account_admin(conn):
     employee_type = input("Enter identity (researcher, engineer, or maintenance): ")
     
     query = """
-        CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s)
     """
     
     try:
-        cursor.execute(query, (username, password, 1, first_name, last_name, None, None, None, employee_type))
+        cursor.execute(query, (username, password, 1, first_name, last_name, None, None, employee_type))
         conn.commit()
         check_query = "SELECT username, is_admin FROM user_info WHERE username = %s"
         cursor.execute(check_query, (username,))
