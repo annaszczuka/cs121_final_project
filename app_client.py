@@ -109,7 +109,7 @@ def most_popular_payment_method(conn):
     """
     cursor = conn.cursor()
     print_section_header("Store Analysis Page")
-    print("Welcome!You are viewing the most popular payment methods per store. ")
+    print("Welcome! You are viewing the payment methods per store.")
     query = """
         SELECT p.store_id, 
             p.store_location, 
@@ -347,7 +347,7 @@ def get_store_stats(conn):
         cursor = conn.cursor()
         print("Welcome! You are analyzing store statisicts! ")
         print("\nChoose the type of store analysis you want to perform:")
-        print("  (a) - Get the most popular payment method for each store")
+        print("  (a) - Get the payment method for each store")
         print("  (b) - General revenue statistics, including total transactions, total revenue, and average foot traffic. ")
         print("  (c) - Get store statistics based on store_id")
         print("  (d) - Return to menu page")
@@ -588,7 +588,7 @@ def get_store_chain(conn, store_id):
     try:
         cursor.execute("SELECT store_id_to_store_chain(%s);", (store_id,))
         result = cursor.fetchone()
-        if result:
+        if result[0]:
             print(f"Store ID: {store_id}, Store Chain Name: {result[0]}")
         else:
             print(f"No associated store chain with given store_id: {store_id}")
@@ -637,7 +637,7 @@ def get_specific_inventory_analysis(conn):
     """
     print_section_header("Most Expensive Items")
     cursor = conn.cursor()
-    print("Welcome! You are viewing the 10 most expensive products in inventory of each store. ")
+    print("Welcome! You are viewing the 10 most expensive products in inventory across all stores.")
     query = """
         SELECT 
             inventory.product_id, 
