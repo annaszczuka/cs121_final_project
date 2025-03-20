@@ -122,16 +122,41 @@ def most_popular_payment_method(conn):
     try:
         cursor.execute(query)
         results = cursor.fetchall()
-        if results:
-            headers = ["Store ID", "Store Location", "Payment Method", "Usage Count"]
-            print("\nMost Popular Payment Methods Per Store:")
-            print(tabulate(results, headers=headers, tablefmt="pretty"))  # Clean and formatted output
-        else:
+
+        if not results:
             print("\nNo results found.\n")
+            return
+
+        headers = ["Store ID", "Store Location", "Payment Method", "Usage Count"]
+
+        page_size = 10 
+        total_rows = len(results)
+        total_pages = (total_rows + page_size - 1) // page_size 
+        start = 0
+        page_num = 1
+
+        while start < total_rows:
+            end = start + page_size
+            table = [list(row) for row in results[start:end]]  
+            print("\nMost Popular Payment Methods Per Store:")
+            print(tabulate(table, headers=headers, tablefmt="pretty"))
+
+            print(f"\nPage {page_num} of {total_pages}")
+
+            if end >= total_rows:
+                break
+
+            user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
+            if user_input != 'n':
+                break
+            start += page_size
+            page_num += 1
+
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
+ 
 
 def get_total_purchases_per_age_group(conn):
     cursor = conn.cursor()
@@ -150,7 +175,7 @@ def get_total_purchases_per_age_group(conn):
         cursor.execute(query)
         results = cursor.fetchall()
         if results:
-            headers = ["Age Group", "Total Purchases"]
+            headers = ["Age Group", "Total Sales ($)"]
             print("\n" + tabulate(results, headers=headers, tablefmt="grid") + "\n")
         else:
             print("\nNo results found.\n")
@@ -205,7 +230,7 @@ def get_total_avg_per_gender(conn):
     query = """
                 SELECT c.gender, 
                         COUNT(p.purchase_id) AS total_purchases,
-                        AVG(p.purchased_product_price_usd) AS avg_spent_per_transaction
+                        ROUND(AVG(p.purchased_product_price_usd), 2) AS avg_spent_per_transaction
                 FROM customer c
                 JOIN purchase p 
                     ON c.customer_id = p.customer_id
@@ -250,7 +275,7 @@ def get_gender_stats(conn):
                 print("\nProduct categories are: Clothing, Groceries, Health & Beauty, Home & Kitchen, Books, and Electronics")
                 product_category = input("What product category are you interested in? ")
                 if product_category not in product_categories:
-                    print("Invalid product category. Please check your spelling and ensure it is a valid listed category. ")
+                    print("Invalid product category. Please check your spelling (and case) and ensure it is a valid listed category. ")
                     continue
                 get_more_gender_analysis(conn, product_category)
                 transition(conn, "gender")
@@ -339,7 +364,7 @@ def get_store_stats(conn):
         elif ans == 'c':
             while True: 
                 print("Analyzing Store Statistics")
-                print("Get store stats based on store id and location: ")
+                print("Get store stats based on store id: ")
                 store_id = input("What store id are you interested in? ")
                 
                 if not store_id.isdigit():
@@ -443,24 +468,28 @@ def get_wants_versus_needs_per_age_group(conn):
     print_section_header("Age Analysis Page")
     print("Welcome! You are viewing the spending breakdown of necessities vs. non-necessities by age group.")
     query = """
-            SELECT age_range, 
-                    SUM(CASE WHEN product_category IN ('Groceries', 'Health & Beauty') 
-                    THEN total_sales ELSE 0 END) 
-                        AS necessities,
-                    SUM(CASE WHEN product_category NOT IN ('Groceries', 'Health & Beauty') 
-                    THEN total_sales ELSE 0 END) 
-                        AS non_necessities
-            FROM sales_summary_by_age_group
-            GROUP BY age_range
-            ORDER BY age_range;
-            """
+        SELECT age_range, 
+             ROUND(CAST(SUM(CASE WHEN 
+                    product_category IN ('Groceries', 'Health & Beauty') 
+                    THEN total_sales ELSE 0 END) AS DECIMAL(10,2)), 2)
+                AS necessities,
+             ROUND(CAST(SUM(CASE WHEN 
+                    product_category NOT IN ('Groceries', 'Health & Beauty') 
+                    THEN total_sales ELSE 0 END) AS DECIMAL(10,2)), 2)
+                AS non_necessities
+        FROM sales_summary_by_age_group
+        GROUP BY age_range
+        ORDER BY age_range;
+    """
+
     try:
         cursor.execute(query)
         results = cursor.fetchall()
 
         if results:
-            headers = ["Age Range", "Spent on Necessities", "Spent on Non Necessities"]
-            print("\n" + tabulate(results, headers=headers, tablefmt="grid") + "\n")
+            headers = ["Age Range", "Spent on Necessities ($)", "Spent on Non Necessities ($)"]
+            formatted_results = [(row[0], f"{row[1]:.2f}", f"{row[2]:.2f}") for row in results]
+            print("\n" + tabulate(formatted_results, headers=headers, tablefmt="grid") + "\n")
         else:
             print("\nNo results found.\n")
 
@@ -549,18 +578,36 @@ def get_most_popular_store_chains_per_age_group(conn):
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
+
+def get_store_chain(conn, store_id):
+    """
+    Given a store_id, retrieves the corresponding store chain name
+    """
+    print_section_header("Store Chain Info")
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT store_id_to_store_chain(%s);", (store_id,))
+        result = cursor.fetchone()
+        if result:
+            print(f"Store ID: {store_id}, Store Chain Name: {result[0]}")
+        else:
+            print(f"No associated store chain with given store_id: {store_id}")
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
         
-# REMEMBER TO ADD CASES THAT CHECK IF THE TYPE IS CORRECT SO THAT WE DONT GET A SQL ERROR
 def get_specific_store_analysis(conn, store_id):
     """
     Fetches the number of open stores for a store chain (store_count) 
     and calculates the store score (store_score) for a specific store
     """
-    print_section_header("Store Analysis Page")
-    print(f"Welcome! You are viewing the number of chains and store score for store with store_id {store_id}")
-    print("\nStore score represents the success of the store in relation to foot traffic and transactions. ")
-
     cursor = conn.cursor()
+    print_section_header("Store Analysis Page")
+    print(f"Welcome! You are viewing the number of chains and chain store score for store with store_id {store_id}")
+    print("\nStore score represents the success of the store in relation to foot traffic and transactions. ")
+    get_store_chain(conn, store_id)
 
     try:
         cursor.execute("SELECT store_count(%s);", (store_id,))
@@ -680,10 +727,16 @@ def create_account_client(conn):
         cursor = conn.cursor()
         username = input("Enter username: ")
         if not check_user_or_pass(conn, username, "username", 0):
+            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            if user_response == "b":
+                break
             continue
         
         password = input("Enter password: ")
         if not check_user_or_pass(conn, password, "password", 0):
+            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            if user_response == "b":
+                break
             continue
    
         first_name = input("Enter first name: ")
@@ -733,23 +786,6 @@ def get_contact_email(conn, username):
     finally:
         cursor.close()
 
-def get_store_chain(conn, store_id):
-    """
-    Given a store_id, retrieves the corresponding store chain name
-    """
-    print_section_header("Store Chain Info")
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT store_id_to_store_chain(%s);", (store_id,))
-        result = cursor.fetchone()
-        if result:
-            print(f"Store ID: {store_id}, Store Chain Name: {result[0]}")
-        else:
-            print(f"No associated store chain with given store_id: {store_id}")
-    except mysql.connector.Error as err:
-        sys.stderr.write(f"Error: {err}\n")
-    finally:
-        cursor.close()
 
 # ----------------------------------------------------------------------
 # Functions for Logging Users In
@@ -767,10 +803,16 @@ def login_interface(conn):
         print("Welcome! Please log in as a client.")
         username = input("Enter username: ")
         if not check_user_or_pass(conn, username, "username", 1):
+            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            if user_response == "b":
+                break
             continue
         
         password = input("Enter password: ")
         if not check_user_or_pass(conn, password, "password", 1):
+            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            if user_response == "b":
+                break
             continue
         
         
@@ -880,7 +922,7 @@ def main(conn):
             login_interface(conn)
         elif choice == '3':
             break
-        input("\nPress Enter to return to the main menu...")
+        input("\nPress Enter to confirm return to the main menu...")
 
 
 if __name__ == '__main__':
