@@ -28,6 +28,9 @@ GRANT EXECUTE ON PROCEDURE retaildb.sp_add_user TO 'client'@'localhost';
 GRANT EXECUTE ON FUNCTION retaildb.authenticate TO 'client'@'localhost';
 GRANT EXECUTE ON FUNCTION retaildb.store_id_to_store_chain TO 'client'@'localhost';
 GRANT EXECUTE ON FUNCTION retaildb.store_count TO 'client'@'localhost';
-GRANT SELECT (username, first_name, last_name, is_admin) ON retaildb.user_info TO 'client'@'localhost';
+GRANT EXECUTE ON FUNCTION retaildb.store_score TO 'client'@'localhost';
+
+GRANT SELECT (username, first_name, last_name, is_admin) 
+ON retaildb.user_info TO 'client'@'localhost';
 
 GRANT SELECT ON retaildb.* TO 'client'@'localhost';
