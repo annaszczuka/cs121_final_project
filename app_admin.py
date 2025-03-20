@@ -71,6 +71,17 @@ def get_conn():
              sys.stderr('An error occurred, please contact the administrator.')
          sys.exit(1)
 
+def get_store_chain_admin(conn, store_id):
+    """
+    Given a store_id, retrieves the corresponding store chain name
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT store_id_to_store_chain(%s);", (store_id,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        return None
 
 # ----------------------------------------------------------------------
 # Functions for Command-Line Options/Query Execution
@@ -80,7 +91,7 @@ def get_conn():
 # ----------------------------------------------------------------------
 
 # Adding transaction changes inventory for all 
-
+        
 def get_next_purchase_id(conn):
     """
     Retrieves the next available purchase ID by finding the highest purchase_id
@@ -89,7 +100,7 @@ def get_next_purchase_id(conn):
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT MAX(purchase_id) FROM purchase;")  
+        cursor.execute("SELECT MAX(CAST(purchase_id AS UNSIGNED)) FROM purchase;")  
         result = cursor.fetchone()
 
         # If there are no purchases in the database, start from 1
@@ -103,103 +114,285 @@ def get_next_purchase_id(conn):
     finally:
         cursor.close()
 
-def add_new_transaction(conn):
+def get_next_customer_id(conn):
     """
-    Allows an admin to add a new transaction manually into the database.
+    Retrieves available customer ID by finding the highest customer ID
     """
     cursor = conn.cursor()
-    print_section_header("Purchase Page")
-    print("Adding a New Purchase.")
-    print("\n1) This must be at an existing store by an existing customer.")
-    print("\n2) The product must be sold at said store.")
-    print(f"\n3) The next available purchase ID is {get_next_purchase_id(conn)}\n")
-
-    # Ask the user to input the data for the transaction they want to add. Here are a few examples.
-    purchase_id = input("Enter Purchase ID: ").strip()
-    try:
-        customer_id = int(input("Enter Customer ID: ").strip())
-    except ValueError:
-        print("Invalid input for Store ID. Please enter a valid number.")
-        return
-    try:
-        store_id = int(input("Enter Store ID: ").strip())
-    except ValueError:
-        print("Invalid input for Store ID. Please enter a valid number.")
-        return
-    try:
-        product_id = int(input("Enter Product ID: ").strip())
-    except ValueError:
-        print("Invalid input for Store ID. Please enter a valid number.")
-        return
     
-    store_location = input("Enter Store Location: ").strip()
-    purchased_product_price_usd = input("Enter Product Price: ").strip()
-
-    # We can ensure the data ia of the correct data type as follows. We will force constraints when adding
-    # data in this way.
     try:
-        discount_percent = int(input("Enter Discount Percentage (0 if none): ").strip())
-    except ValueError:
-        print("Invalid input for discount percentage. Please enter a valid number.")
-        return
+        cursor.execute("SELECT MAX(customer_id) FROM purchase;")  
+        result = cursor.fetchone()
 
-    # Here are some more attributes the admin can add data to.
-    payment_method = input("Enter Payment Method (Credit, Debit, Cash, etc.): ").strip()
-    txn_date = input("Enter Transaction Date (YYYY-MM-DD): ").strip()
+        return result[0]
+
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+        return None  # Return None in case of error
+
+    finally:
+        cursor.close()
 
 
-     # Get today's date
-    current_date = datetime.date.today()
+def view_possible_purchases(conn):
+    """
+    Displays under what conditions an admin can insert 
+    """
+    cursor = conn.cursor()
 
-    # Convert txn_date string to a date object
-    try:
-        txn_date_obj = datetime.datetime.strptime(txn_date, "%Y-%m-%d").date()
-    except ValueError:
-        print("Invalid date format. Please enter the date in YYYY-MM-DD format.")
-        return
-
-    # Check if txn_date is today's date or a previous date
-    if txn_date_obj > current_date:
-        print("Error: Transaction date cannot be in the future.")
-        return
-
-    cursor.execute("""
-            SELECT 
-                (SELECT COUNT(*) FROM customer WHERE customer_id = %s) AS customer_exists,
-                (SELECT COUNT(*) FROM store WHERE store_id = %s) AS store_exists,
-                (SELECT COUNT(*) FROM store WHERE store_id = %s AND store_location = %s) AS location_exists,
-                (SELECT COUNT(*) FROM inventory WHERE product_id = %s AND store_id = %s) AS product_exists
-        """, (customer_id, store_id, store_id, store_location, product_id, store_id))
-
-    customer_exists, store_exists, location_exists, product_exists = cursor.fetchone()
-
-    if not customer_exists:
-        print("Error: Customer ID does not exist.")
-        return
-    if not store_exists:
-        print("Error: Store ID does not exist.")
-        return
-    if not location_exists:
-        print("Error: Store Location does not exist.")
-        print("Error: Please enter a valid Store Location.")
-        return
-    if not product_exists:
-        print("Error: Product ID does not exist for this store.")
-        return
-
+    # Query to display existing products, stores, and store locations
     query = """
-            INSERT INTO purchase (purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
-        """
+        SELECT product_id, store_id, store_location FROM purchase;
+    """
     try:
-        cursor.execute(query,
-                       (purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd))
-        conn.commit()
-        print("Purchase successfully added.")
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        if not results:
+            print("No available stores at the moment.")
+        else:
+            headers = ["Product ID", "Store ID", "Store Location"]
+            page_size = 10 
+            total_rows = len(results)
+            total_pages = (total_rows + page_size - 1) // page_size 
+            start = 0
+            page_num = 1
+
+            while start < total_rows:
+                end = start + page_size
+                table = [list(row) for row in results[start:end]]
+                print_section_header("Store Performance Page")
+                
+                print("You are viewing possible product, store, and store location input: ")
+                print(tabulate(table, headers=headers, tablefmt="pretty"))
+
+                print(f"\nPage {page_num} of {total_pages}")
+
+                if end >= total_rows:
+                    break
+                
+                user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
+                if user_input != 'n':
+                    break
+
+                start += page_size 
+                page_num += 1  
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
         cursor.close()
+
+
+def check_input_validity(conn, user_input, input_type):
+    cursor = conn.cursor()
+    
+    if not user_input.isdigit():
+        print(f"Invalid input for {input_type}. Please enter a valid number.")
+        return 0
+    
+    user_input = int(user_input)
+    if input_type == "customer_id":
+        cursor.execute("SELECT COUNT(*) FROM customer WHERE customer_id = %s", (user_input,))
+        exists = cursor.fetchone()[0]
+        if not exists:
+            print(f"Customer ID {user_input} does not exist. Please enter a valid ID.")
+            return 0
+    
+    if input_type == "store_id":
+        cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (user_input,))
+        exists = cursor.fetchone()[0]
+        if not exists:
+            print(f"Store ID {user_input} does not exist. Please enter a valid ID.")
+            return 0
+    
+    if input_type == "purchase_id":
+        if user_input >= 10**7:  # Ensures the number is less than 7 digits
+            print("Purchase ID must be less than 7 digits.")
+            return 0
+        cursor.execute("SELECT COUNT(*) FROM purchase WHERE purchase_id = %s", (user_input,))
+        exists = cursor.fetchone()[0]
+        if exists:
+            print(f"Purchase ID {user_input} is already taken. Please try again. ")
+            return 0
+        
+    if input_type == "product_id":
+        if user_input >= 10**7:  # Ensures the number is less than 7 digits
+            print("Product ID must be less than 7 digits.")
+            return 0
+        
+    if input_type == "purchased_product_price_usd":
+        if user_input >= 100000 or user_input < 0:  
+            print("Error: Value must be a numeric amount of type (6, 2).")
+            return 0
+        
+    if input_type == "discount_percent":
+        if user_input > 100:
+            print("Discount Percent can not be greater than 100%")
+            return 0
+    return 1
+        
+def get_input_transaction(conn):
+    cursor = conn.cursor()
+    # 2 indicates successful inputs, 1 indicates stop transaction, 0 indicates restart inputs
+    flag = 2
+    
+    while True:
+        purchase_id = input("Enter Purchase ID (or r to restart inputs and q to stop transaction): ").strip()
+        if purchase_id.lower() == "r":
+            print("Restarting transaction...\n")
+            return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        if purchase_id.lower() == "q":
+            print("Quitting transaction...\n")
+            return (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        if check_input_validity(conn, purchase_id, "purchase_id"):
+            break
+            
+    while True:
+        customer_id = input("Enter Customer ID (or r to restart inputs and q to stop transaction): ").strip()
+        if customer_id.lower() == "r":
+            print("Restarting transaction...\n")
+            return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        if customer_id.lower() == "q":
+            print("Quitting transaction...\n")
+            return (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        if check_input_validity(conn, customer_id, "customer_id"):
+            break
+    
+    while True:
+        store_id = input("Enter Store ID (or r to restart inputs and q to stop transaction): ").strip()
+        if store_id.lower() == "r":
+            print("Restarting transaction...\n")
+            return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        if store_id.lower() == "q":
+            print("Quitting transaction...\n")
+            return (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        if check_input_validity(conn, store_id, "store_id"):
+            break
+        
+    while True:
+        store_location = input("Enter Store Location (or r to restart inputs and q to stop transaction): ").strip()
+        if store_location.lower() == "r":
+            print("Restarting transaction...\n")
+            return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        if store_location.lower() == "q":
+            print("Quitting transaction...\n")
+            return (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        
+        cursor.execute(
+            "SELECT COUNT(*) FROM store WHERE store_id = %s AND store_location = %s",
+            (store_id, store_location),
+        )
+        exists = cursor.fetchone()[0]
+        if not exists:
+            print(f"Store ID {store_id} does not have a location at '{store_location}'. Please enter a valid store location. ")
+            continue
+        break
+    
+    while True: 
+        product_id = input("Enter Product ID (or r to restart inputs and q to stop transaction): ").strip()
+        if product_id.lower() == "r":
+            print("Restarting transaction...\n")
+            return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        if product_id.lower() == "q":
+            print("Quitting transaction...\n")
+            return (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        
+        if not check_input_validity(conn, product_id, "product_id"):
+            continue
+        
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM inventory i
+            WHERE i.product_id = %s AND i.store_id = %s AND i.store_location = %s
+        """, (product_id, store_id, store_location))
+
+        product_exists = cursor.fetchone()[0]
+        if not product_exists:
+            print(f" Product ID does not exist for this store at this location. Please choose a product that is sold at {store_id} ({get_store_chain_admin(conn, store_id)}), {store_location}")
+            continue
+        break
+    
+    while True: 
+        purchased_product_price_usd = input("Enter Product Price: ").strip()
+        if check_input_validity(conn, purchased_product_price_usd, "purchased_product_price_usd"):
+            break
+
+    # We can ensure the data ia of the correct data type as follows. We will force constraints when adding
+    # data in this way.
+    while True:
+        discount_percent = input("Enter Discount Percentage (0 if none): ").strip()
+        if check_input_validity(conn, discount_percent, "discount_percent"):
+            break
+
+    # Here are some more attributes the admin can add data to.
+    payment_methods = {"Credit Card", "Debit Card", "Cash"}
+    while True:
+        payment_method = input("Enter Payment Method (Credit Card, Debit Card, Cash): ").strip()
+        if payment_method not in payment_methods:
+            print("Invalid payment method. Please check spelling and capitalization. ")
+            continue
+        break
+        
+    while True:
+        txn_date = input("Enter Transaction Date (YYYY-MM-DD): ").strip()
+
+        current_date = datetime.date.today()
+        # Convert txn_date string to a date object
+        try:
+            txn_date_obj = datetime.datetime.strptime(txn_date, "%Y-%m-%d").date()
+        except ValueError:
+            print("Invalid date format. Please enter the date in YYYY-MM-DD format.")
+            continue
+
+        # Check if txn_date is today's date or a previous date
+        if txn_date_obj > current_date:
+            print("Transaction date cannot be in the future. Please try again. ")
+            continue
+        break
+    return flag, purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd
+
+def add_new_transaction(conn):
+    """
+    Allows an admin to add a new transaction manually into the database.
+    """
+    while True: 
+        cursor = conn.cursor()
+        print_section_header("Purchase Page")
+        print("Adding a New Purchase.")
+        print("\n1) This must be at an existing store by an existing customer.")
+        print("\n2) The product must be sold at said store.")
+        print(f"\n3) The next available purchase ID is {get_next_purchase_id(conn)}")
+        print(f"\n4) The available customer IDs are 1 - {get_next_customer_id(conn)}\n")
+
+        see = input("To see possible store, store location, product combos enter y. Else enter any key.\n").strip().lower()
+        if see == "y":
+            view_possible_purchases(conn)
+        
+        (flag, purchase_id, product_id, store_id, customer_id, store_location,
+            payment_method, discount_percent, txn_date, 
+            purchased_product_price_usd) = get_input_transaction(conn)
+        if flag == 0:
+            # restart inputs
+            continue
+        if flag == 1:
+            # quit transaction
+            break
+        
+        query = """
+                INSERT INTO purchase (purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+            """
+        try:
+            cursor.execute(query,
+                        (purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd))
+            conn.commit()
+            print("Purchase successfully added.")
+            break
+        except mysql.connector.Error as err:
+            sys.stderr.write(f"Error: {err}\n")
+            continue
+        finally:
+            cursor.close()
 
 def view_store_performance(conn):
     """
@@ -342,9 +535,15 @@ def create_account_admin(conn):
         cursor = conn.cursor()
         username = input("Enter username: ")
         if not check_user_or_pass(conn, username, "username", 0):
+            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            if user_response == "b":
+                break
             continue
         password = input("Enter password: ")
         if not check_user_or_pass(conn, password, "password", 0):
+            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            if user_response == "b":
+                break
             continue
         
         first_name = input("Enter first name: ")
@@ -396,10 +595,16 @@ def login_interface(conn):
         
         username = input("Enter username: ")
         if not check_user_or_pass(conn, username, "username", 1):
+            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            if user_response == "b":
+                break
             continue
         
         password = input("Enter password: ")
         if not check_user_or_pass(conn, password, "password", 1):
+            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            if user_response == "b":
+                break
             continue
         
         
