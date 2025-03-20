@@ -752,6 +752,16 @@ def create_account_client(conn):
             print("Invalid input. Please try again. ")
             continue
         phone_number = input("Enter phone number: ")
+        if len(phone_number) > 20:
+            print("Invalid input. Phone number must be at most 20 characters long. Please try again. ")
+            continue
+        
+        # Regex to allow only valid phone number characters
+        if not re.match(r'^[\d\s\-\(\)\+]+$', phone_number):
+            print("Invalid input. Phone number can only contain digits, spaces, dashes (-), parentheses (()). Please try again.")
+            continue
+
+        
         query = """
             CALL sp_add_user(%s, %s, %s, %s, %s, %s, %s, %s)
         """
