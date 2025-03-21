@@ -1,7 +1,5 @@
-import sys  # to print error messages to sys.stderr
+import sys 
 import mysql.connector
-# To get error codes from the connector, useful for user-friendly
-# error-handling
 import mysql.connector.errorcode as errorcode
 from tabulate import tabulate
 import re
@@ -17,7 +15,8 @@ def check_user_or_pass(conn, word, type, is_login):
         return 0
     
     if not re.match(r"^[a-zA-Z0-9_]+$", word):
-        print(f"The {type} can only contain letters, numbers, and underscores. Please try again.")
+        print(f"The {type} can only contain letters, numbers, and underscores. "
+              "Please try again.")
         return 0
     
     # checks to make sure username is in the database
