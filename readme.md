@@ -12,14 +12,16 @@ First clone the repo:
 ```$ git clone https://github.com/annaszczuka/cs121_final_project.git```
 
 To install the requirements needed to run the files, run 
-$ conda create --name new_env python=3.10.16 
+```$ conda create --name new_env python=3.10.16 
 $ conda activate new_env 
 $ cd cs121_final_project 
-$ pip install -r requirements.txt (This step might take 2-5 minutes)
+$ pip install -r requirements.txt ```
+(This step might take 2-5 minutes)
 
 To get into mysql run: mysql --local-infile=1 -u root -p
 
-To create the database, run 
+To create the database, run
+```
 mysql> CREATE DATABASE retaildb; 
 mysql> USE retaildb;
 
@@ -29,11 +31,12 @@ mysql> source load-data.sql;
 mysql> source setup-passwords.sql; 
 mysql> source setup-routines.sql; 
 mysql> source grant-permissions.sql; 
-mysql> source queries.sql; -- this is good to confirm no syntax errors mysql> quit;
+mysql> source queries.sql;
+mysql> quit;```
 
-To run the application as a client, run $ python3 app-client.py
+To run the application as a client, run ```$ python3 app-client.py```
 
-To run the application as an admin, run $ python3 app-admin.py
+To run the application as an admin, run ```$ python3 app-admin.py```
 
 Upon running these Python files, one will be prompted to create an account or log in. 
 Afterward, the output in the command line terminal will contain instructions on what retail statistics to explore. 
