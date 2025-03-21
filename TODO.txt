@@ -1,4 +1,0 @@
-- make sure phone number is a specific length
-- make sure you can log in with same username and password as before
-- use tabulate for all resulting sql queries
-- warning: when loading passwords
