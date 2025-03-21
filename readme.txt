@@ -9,7 +9,7 @@ We also removed some unnecessary columns, including but not limited to marketing
 We removed this columns as these columns can be derived from other columns
 
 First clone the repo: 
-$ git clone https://github.com/annaszczuka/cs121_final_project.git
+```$ git clone https://github.com/annaszczuka/cs121_final_project.git```
 
 To install the requirements needed to run the files, run 
 $ conda create --name new_env python=3.10.16 
