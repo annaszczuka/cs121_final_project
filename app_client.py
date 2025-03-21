@@ -77,6 +77,18 @@ def get_conn():
 # Functions for Command-Line Options/Query Execution
 # ----------------------------------------------------------------------
 
+def get_store_chain_less_format(conn, store_id):
+    """
+    Given a store_id, retrieves the corresponding store chain name
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT store_id_to_store_chain(%s);", (store_id,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        return None
+
 def transition(conn, type_stats):
     while True:
         print_section_header("Transition Page")
@@ -350,16 +362,41 @@ def get_store_stats(conn):
         print("  (a) - Get the payment method for each store")
         print("  (b) - General revenue statistics, including total transactions, total revenue, and average foot traffic. ")
         print("  (c) - Get store statistics based on store_id")
-        print("  (d) - Return to menu page")
-        print("  (e) - Quit")
+        print("  (d) - Find Store Chain Based on Store ID")
+        print("  (e) - Return to menu page")
+        print("  (f) - Quit")
       
         ans = input("Enter an option: ").lower()
         if ans == 'a':
             print("\nFetching the most popular payment method...\n")
             most_popular_payment_method(conn)
+            user_store_response = input('Enter y to convert a seen store ID to a store chain. Enter any other key to continue \n').lower()
+            if user_store_response == 'y':
+                store_id_input = input('Please enter Store ID to be converted: \n')
+                if not store_id_input.isdigit():
+                    print(f"Invalid input for {store_id_input}. Please enter a valid number.")
+                cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (store_id_input,))
+                exists = cursor.fetchone()[0]
+                if not exists:
+                    print(f"Store ID {store_id_input} does not exist. Please enter a valid ID next time.")
+                    continue
+                stored_id_res = get_store_chain_less_format(conn, store_id_input)
+                print(f"Store chain {stored_id_res} corresponds to store id {store_id_input}")
             transition(conn, "store")
         elif ans == 'b':
             get_many_stats_per_store(conn)
+            user_store_response = input('Enter y to convert a seen store ID to a store chain. Enter any other key to continue \n').lower()
+            if user_store_response == 'y':
+                store_id_input = input('Please enter Store ID to be converted: \n')
+                if not store_id_input.isdigit():
+                    print(f"Invalid input for {store_id_input}. Please enter a valid number next time.")
+                cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (store_id_input,))
+                exists = cursor.fetchone()[0]
+                if not exists:
+                    print(f"Store ID {store_id_input} does not exist. Please enter a valid ID next time.")
+                    continue
+                stored_id_res = get_store_chain_less_format(conn, store_id_input)
+                print(f"Store chain {stored_id_res} corresponds to store id {store_id_input}")
             transition(conn, "store")
         elif ans == 'c':
             while True: 
@@ -368,8 +405,8 @@ def get_store_stats(conn):
                 store_id = input("What store id are you interested in? ")
                 
                 if not store_id.isdigit():
-                    print("Invalid input. Store ID must be a number. Please try again. ")
-                    continue
+                    print("Invalid input. Store ID must be a number. ")
+                    break
                 
                 store_id = int(store_id)
 
@@ -386,13 +423,38 @@ def get_store_stats(conn):
                         continue
                 except mysql.connector.Error as err:
                     sys.stderr.write(f"Error: {err}\n")
-        
                 get_specific_store_analysis(conn, store_id)
                 transition(conn, "store")
                 break
-        elif ans == 'd':
-            show_client_options(conn)
+            user_store_response = input('Enter y to convert a seen store ID to a store chain. Enter any other key to continue \n').lower()
+            if user_store_response == 'y':
+                store_id_input = input('Please enter Store ID to be converted: \n')
+                if not store_id_input.isdigit():
+                    print(f"Invalid input for {store_id_input}. Please enter a valid number.")
+                    continue
+                cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (store_id_input,))
+                exists = cursor.fetchone()[0]
+                if not exists:
+                    print(f"Store ID {store_id_input} does not exist. Please enter a valid ID next time.")
+                    continue
+                stored_id_res = get_store_chain_less_format(conn, store_id_input)
+                print(f"Store chain {stored_id_res} corresponds to store id {store_id_input}")
         elif ans == 'e':
+            show_client_options(conn)
+        elif ans == 'd':
+            user_res = input("Please enter store ID: \n")
+            if not user_res.isdigit():
+                print(f"Invalid input for {user_res}. Please enter a valid number.")
+                continue
+            cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (user_res,))
+            exists = cursor.fetchone()[0]
+            if not exists:
+                print(f"Store ID {user_res} does not exist. Please enter a valid ID next time.")
+                continue
+            stored_id_res = get_store_chain_less_format(conn, user_res)
+            print(f"Store chain {stored_id_res} corresponds to store id {user_res}")
+            
+        elif ans == 'f':
             quit_ui()
         else:
             print("Invalid option. Please try again. ")
@@ -585,6 +647,14 @@ def get_store_chain(conn, store_id):
     """
     print_section_header("Store Chain Info")
     cursor = conn.cursor()
+
+    if not store_id.isdigit():
+            print(f"Invalid input for {store_id}. Please enter a valid number.")
+    cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (store_id,))
+    exists = cursor.fetchone()[0]
+    if not exists:
+        print(f"Store ID {store_id} does not exist. Please enter a valid ID next time.")
+        return 0
     try:
         cursor.execute("SELECT store_id_to_store_chain(%s);", (store_id,))
         result = cursor.fetchone()
