@@ -1,4 +1,6 @@
-Our data comes from the public kaggle dataset linked below: https://www.kaggle.com/datasets/abdurraziq01/retail-data/data
+Our data comes from the public kaggle dataset linked below: 
+https://www.kaggle.com/datasets/abdurraziq01/retail-data/data
+
 We made significant changes to the csv file by using ChatGPT and python functions to generate columns such as year_opened, purchase_id, visit_date, 
 customer name, store chain name, is_favorite, purchased_product_price_usd. 
 We also diversified the gender column by including x.
