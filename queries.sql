@@ -1,4 +1,3 @@
-
 -- Admin queries:
 
 -- This query requires user input to run, so we choose an arbitrary id
