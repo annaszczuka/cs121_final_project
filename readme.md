@@ -12,10 +12,12 @@ First clone the repo:
 ```$ git clone https://github.com/annaszczuka/cs121_final_project.git```
 
 To install the requirements needed to run the files, run 
-```$ conda create --name new_env python=3.10.16 
+```
+$ conda create --name new_env python=3.10.16 
 $ conda activate new_env 
 $ cd cs121_final_project 
-$ pip install -r requirements.txt ```
+$ pip install -r requirements.txt
+```
 (This step might take 2-5 minutes)
 
 To get into mysql run:
