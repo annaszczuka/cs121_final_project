@@ -19,24 +19,20 @@ meaningful ways.
 ************************************************************************************************************************
 """
 
-import sys  # to print error messages to sys.stderr
+import sys 
 import mysql.connector
-# To get error codes from the connector, useful for user-friendly
-# error-handling
 import mysql.connector.errorcode as errorcode
 from tabulate import tabulate
 import datetime
-from abstracted import check_user_or_pass, print_divider, print_lines, print_section_header
+from abstracted import check_user_or_pass, print_section_header
 
-# Debugging flag to print errors when debugging that shouldn't be visible
-# to an actual client. ***Set to False when done testing.***
 DEBUG = True
 
 # ----------------------------------------------------------------------
 # SQL Utility Functions
 # # ----------------------------------------------------------------------
         
-import getpass  # Secure password input
+import getpass
 
 def get_conn():
      """"
@@ -47,10 +43,8 @@ def get_conn():
          conn = mysql.connector.connect(
            host='localhost',
            user='admin',
-           # Find port in MAMP or MySQL Workbench GUI or with
-           # SHOW VARIABLES WHERE variable_name LIKE 'port';
-           port='3306',  # this may change!
-           password='admin_pw', # adminpw
+           port='3306',  
+           password='admin_pw', 
            database='retaildb'
          )
          print('Successfully connected.')
@@ -84,9 +78,6 @@ def get_store_chain_admin(conn, store_id):
         return None
 
 # ----------------------------------------------------------------------
-# Functions for Command-Line Options/Query Execution
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
 # Admin Functionalities
 # ----------------------------------------------------------------------
 
@@ -100,7 +91,8 @@ def get_next_purchase_id(conn):
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT MAX(CAST(purchase_id AS UNSIGNED)) FROM purchase;")  
+        cursor.execute("SELECT MAX(CAST(purchase_id AS UNSIGNED)) "
+                       "FROM purchase;")  
         result = cursor.fetchone()
 
         # If there are no purchases in the database, start from 1
@@ -109,7 +101,7 @@ def get_next_purchase_id(conn):
 
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
-        return None  # Return None in case of error
+        return None  
 
     finally:
         cursor.close()
@@ -128,7 +120,7 @@ def get_next_customer_id(conn):
 
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
-        return None  # Return None in case of error
+        return None  
 
     finally:
         cursor.close()
@@ -163,7 +155,8 @@ def view_possible_purchases(conn):
                 table = [list(row) for row in results[start:end]]
                 print_section_header("Store Performance Page")
                 
-                print("You are viewing possible product, store, and store location input: ")
+                print("You are viewing possible product, store, "
+                      "and store location input: ")
                 print(tabulate(table, headers=headers, tablefmt="pretty"))
 
                 print(f"\nPage {page_num} of {total_pages}")
@@ -171,7 +164,8 @@ def view_possible_purchases(conn):
                 if end >= total_rows:
                     break
                 
-                user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
+                user_input = input("\nPress 'N' to view next page, or any "
+                                   "other key to exit: ").strip().lower()
                 if user_input != 'n':
                     break
 
@@ -192,27 +186,33 @@ def check_input_validity(conn, user_input, input_type):
     
     user_input = int(user_input)
     if input_type == "customer_id":
-        cursor.execute("SELECT COUNT(*) FROM customer WHERE customer_id = %s", (user_input,))
+        cursor.execute("SELECT COUNT(*) FROM customer WHERE "
+                       "customer_id = %s", (user_input,))
         exists = cursor.fetchone()[0]
         if not exists:
-            print(f"Customer ID {user_input} does not exist. Please enter a valid ID.")
+            print(f"Customer ID {user_input} does not exist. "
+                  "Please enter a valid ID.")
             return 0
     
     if input_type == "store_id":
-        cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (user_input,))
+        cursor.execute("SELECT COUNT(*) FROM store WHERE "
+                       "store_id = %s", (user_input,))
         exists = cursor.fetchone()[0]
         if not exists:
-            print(f"Store ID {user_input} does not exist. Please enter a valid ID.")
+            print(f"Store ID {user_input} does not exist. "
+                  "Please enter a valid ID.")
             return 0
     
     if input_type == "purchase_id":
         if user_input >= 10**7:  # Ensures the number is less than 7 digits
             print("Purchase ID must be less than 7 digits.")
             return 0
-        cursor.execute("SELECT COUNT(*) FROM purchase WHERE purchase_id = %s", (user_input,))
+        cursor.execute("SELECT COUNT(*) FROM purchase WHERE "
+                       "purchase_id = %s", (user_input,))
         exists = cursor.fetchone()[0]
         if exists:
-            print(f"Purchase ID {user_input} is already taken. Please try again. ")
+            print(f"Purchase ID {user_input} is already taken. "
+                  "Please try again. ")
             return 0
         
     if input_type == "product_id":
@@ -233,11 +233,13 @@ def check_input_validity(conn, user_input, input_type):
         
 def get_input_transaction(conn):
     cursor = conn.cursor()
-    # 2 indicates successful inputs, 1 indicates stop transaction, 0 indicates restart inputs
+    # 2 indicates successful inputs, 1 indicates stop transaction, 
+    # 0 indicates restart inputs
     flag = 2
     
     while True:
-        purchase_id = input("Enter Purchase ID (or r to restart inputs and q to stop transaction): ").strip()
+        purchase_id = input("Enter Purchase ID (or r to restart "
+                            "inputs and q to stop transaction): ").strip()
         if purchase_id.lower() == "r":
             print("Restarting transaction...\n")
             return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -248,7 +250,8 @@ def get_input_transaction(conn):
             break
             
     while True:
-        customer_id = input("Enter Customer ID (or r to restart inputs and q to stop transaction): ").strip()
+        customer_id = input("Enter Customer ID (or r to restart "
+                            "inputs and q to stop transaction): ").strip()
         if customer_id.lower() == "r":
             print("Restarting transaction...\n")
             return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -259,7 +262,8 @@ def get_input_transaction(conn):
             break
     
     while True:
-        store_id = input("Enter Store ID (or r to restart inputs and q to stop transaction): ").strip()
+        store_id = input("Enter Store ID (or r to restart inputs "
+                         "and q to stop transaction): ").strip()
         if store_id.lower() == "r":
             print("Restarting transaction...\n")
             return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -270,7 +274,8 @@ def get_input_transaction(conn):
             break
         
     while True:
-        store_location = input("Enter Store Location (or r to restart inputs and q to stop transaction): ").strip()
+        store_location = input("Enter Store Location (or r to restart "
+                               "inputs and q to stop transaction): ").strip()
         if store_location.lower() == "r":
             print("Restarting transaction...\n")
             return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -279,17 +284,20 @@ def get_input_transaction(conn):
             return (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         
         cursor.execute(
-            "SELECT COUNT(*) FROM store WHERE store_id = %s AND store_location = %s",
+            "SELECT COUNT(*) FROM store WHERE store_id = %s AND "
+            "store_location = %s",
             (store_id, store_location),
         )
         exists = cursor.fetchone()[0]
         if not exists:
-            print(f"Store ID {store_id} does not have a location at '{store_location}'. Please enter a valid store location. ")
+            print(f"Store ID {store_id} does not have a location at "
+                  f"'{store_location}'. Please enter a valid store location. ")
             continue
         break
     
     while True: 
-        product_id = input("Enter Product ID (or r to restart inputs and q to stop transaction): ").strip()
+        product_id = input("Enter Product ID (or r to restart inputs "
+                           "and q to stop transaction): ").strip()
         if product_id.lower() == "r":
             print("Restarting transaction...\n")
             return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -303,33 +311,42 @@ def get_input_transaction(conn):
         cursor.execute("""
             SELECT COUNT(*)
             FROM inventory i
-            WHERE i.product_id = %s AND i.store_id = %s AND i.store_location = %s
+            WHERE i.product_id = %s 
+            AND i.store_id = %s 
+            AND i.store_location = %s
         """, (product_id, store_id, store_location))
 
         product_exists = cursor.fetchone()[0]
         if not product_exists:
-            print(f" Product ID does not exist for this store at this location. Please choose a product that is sold at {store_id} ({get_store_chain_admin(conn, store_id)}), {store_location}")
+            print(f" Product ID does not exist for this store at this "
+                  "location. Please choose a product that is sold at "
+                  f"{store_id} ({get_store_chain_admin(conn, store_id)}), "
+                  f"{store_location}")
             continue
         break
     
     while True: 
         purchased_product_price_usd = input("Enter Product Price: ").strip()
-        if check_input_validity(conn, purchased_product_price_usd, "purchased_product_price_usd"):
+        if check_input_validity(conn, purchased_product_price_usd, 
+                                "purchased_product_price_usd"):
             break
 
-    # We can ensure the data ia of the correct data type as follows. We will force constraints when adding
-    # data in this way.
+    # We can ensure the data ia of the correct data type as follows. We will 
+    # force constraints when adding data in this way.
     while True:
-        discount_percent = input("Enter Discount Percentage (0 if none): ").strip()
+        discount_percent = input("Enter Discount Percentage "
+                                 "(0 if none): ").strip()
         if check_input_validity(conn, discount_percent, "discount_percent"):
             break
 
     # Here are some more attributes the admin can add data to.
     payment_methods = {"Credit Card", "Debit Card", "Cash"}
     while True:
-        payment_method = input("Enter Payment Method (Credit Card, Debit Card, Cash): ").strip()
+        payment_method = input("Enter Payment Method (Credit Card, "
+                               "Debit Card, Cash): ").strip()
         if payment_method not in payment_methods:
-            print("Invalid payment method. Please check spelling and capitalization. ")
+            print("Invalid payment method. Please check spelling and"
+                  "capitalization. ")
             continue
         break
         
@@ -339,17 +356,22 @@ def get_input_transaction(conn):
         current_date = datetime.date.today()
         # Convert txn_date string to a date object
         try:
-            txn_date_obj = datetime.datetime.strptime(txn_date, "%Y-%m-%d").date()
+            txn_date_obj = datetime.datetime.strptime(txn_date, 
+                                                      "%Y-%m-%d").date()
         except ValueError:
-            print("Invalid date format. Please enter the date in YYYY-MM-DD format.")
+            print("Invalid date format. Please enter the date in "
+                  "YYYY-MM-DD format.")
             continue
 
         # Check if txn_date is today's date or a previous date
         if txn_date_obj > current_date:
-            print("Transaction date cannot be in the future. Please try again. ")
+            print("Transaction date cannot be in the future. "
+                  "Please try again. ")
             continue
         break
-    return flag, purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd
+    return (flag, purchase_id, product_id, store_id, customer_id, 
+            store_location, payment_method, discount_percent, 
+            txn_date, purchased_product_price_usd)
 
 def add_new_transaction(conn):
     """
@@ -361,10 +383,13 @@ def add_new_transaction(conn):
         print("Adding a New Purchase.")
         print("\n1) This must be at an existing store by an existing customer.")
         print("\n2) The product must be sold at said store.")
-        print(f"\n3) The next available purchase ID is {get_next_purchase_id(conn)}")
-        print(f"\n4) The available customer IDs are 1 - {get_next_customer_id(conn)}\n")
+        print(f"\n3) The next available purchase ID is "
+              f"{get_next_purchase_id(conn)}")
+        print(f"\n4) The available customer IDs are 1 - "
+              f"{get_next_customer_id(conn)}\n")
 
-        see = input("To see possible store, store location, product combos enter y. Else enter any key.\n").strip().lower()
+        see = input("To see possible store, store location, product combos "
+                    "enter y. Else enter any key.\n").strip().lower()
         if see == "y":
             view_possible_purchases(conn)
         
@@ -379,12 +404,17 @@ def add_new_transaction(conn):
             break
         
         query = """
-                INSERT INTO purchase (purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd)
+                INSERT INTO purchase 
+                    (purchase_id, product_id, store_id, customer_id, 
+                     store_location, payment_method, discount_percent, 
+                    txn_date, purchased_product_price_usd)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
             """
         try:
             cursor.execute(query,
-                        (purchase_id, product_id, store_id, customer_id, store_location, payment_method, discount_percent, txn_date, purchased_product_price_usd))
+                        (purchase_id, product_id, store_id, customer_id, 
+                         store_location, payment_method, discount_percent, 
+                         txn_date, purchased_product_price_usd))
             conn.commit()
             print("Purchase successfully added.")
             break
@@ -401,8 +431,6 @@ def view_store_performance(conn):
     """
     cursor = conn.cursor()
 
-    # Query to display the store performance reports including revenue, total transactions,
-    # and average foot traffic per store.
     query = """
         WITH purchase_summary AS (
             SELECT store_id,
@@ -439,7 +467,8 @@ def view_store_performance(conn):
         if not results:
             print("No store performance data available.")
         else:
-            headers = ["Store ID", "Location", "Total Transactions", "Total Revenue ($)", "Avg Foot Traffic"]
+            headers = ["Store ID", "Location", "Total Transactions", 
+                       "Total Revenue ($)", "Avg Foot Traffic"]
             page_size = 10 
             total_rows = len(results)
             total_pages = (total_rows + page_size - 1) // page_size 
@@ -459,16 +488,13 @@ def view_store_performance(conn):
                 if end >= total_rows:
                     break
                 
-                user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
+                user_input = input("\nPress 'N' to view next page, or any "
+                                   "other key to exit: ").strip().lower()
                 if user_input != 'n':
                     break
 
                 start += page_size 
                 page_num += 1  
-            # table = [list(row) for row in results]
-
-            # print("You are viewing the store performance report:")
-            # print(tabulate(table, headers=headers, tablefmt="pretty"))
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
     finally:
@@ -496,7 +522,8 @@ def view_materialized_store_sales(conn):
             print("No sales data available.")
             return
 
-        headers = ["Store ID", "Total Sales ($)", "Num Purchases", "Avg Discount (%)", "Min Price ($)", "Max Price ($)"]
+        headers = ["Store ID", "Total Sales ($)", "Num Purchases", 
+                   "Avg Discount (%)", "Min Price ($)", "Max Price ($)"]
 
         page_size = 10 
         total_rows = len(results)
@@ -517,7 +544,8 @@ def view_materialized_store_sales(conn):
             if end >= total_rows:
                 break
             
-            user_input = input("\nPress 'N' to view next page, or any other key to exit: ").strip().lower()
+            user_input = input("\nPress 'N' to view next page, or any "
+                               "other key to exit: ").strip().lower()
             if user_input != 'n':
                 break
 
@@ -535,13 +563,15 @@ def create_account_admin(conn):
         cursor = conn.cursor()
         username = input("Enter username: ")
         if not check_user_or_pass(conn, username, "username", 0):
-            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            user_response = input("Type b to go back to main menu. Else "
+                                  "type any key to retry \n").strip().lower()
             if user_response == "b":
                 break
             continue
         password = input("Enter password: ")
         if not check_user_or_pass(conn, password, "password", 0):
-            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            user_response = input("Type b to go back to main menu. Else "
+                                  "type any key to retry \n").strip().lower()
             if user_response == "b":
                 break
             continue
@@ -554,13 +584,15 @@ def create_account_admin(conn):
         if last_name == "":
             print("You did not enter a last name. Please try again. ")
             continue
-        employee_type = input("Enter identity (researcher, engineer, or maintenance): ").lower()
+        employee_type = input("Enter identity (researcher, engineer, "
+                              "or maintenance): ").lower()
         if employee_type == "":
             print("You did not enter an identity. Please try again. ")
             continue
         employee_types = {"researcher", "engineer", "maintenance"}
         if employee_type not in employee_types:
-            print("This identity does not exist. Please check your spelling and choose from the options listed. ")
+            print("This identity does not exist. Please check your "
+                  "spelling and choose from the options listed. ")
             continue
         
         query = """
@@ -568,7 +600,8 @@ def create_account_admin(conn):
         """
         
         try:
-            cursor.execute(query, (username, password, 1, first_name, last_name, None, None, employee_type))
+            cursor.execute(query, (username, password, 1, first_name, 
+                                   last_name, None, None, employee_type))
             conn.commit()
             print(f"User account created successfully. ")
             break
@@ -595,14 +628,16 @@ def login_interface(conn):
         
         username = input("Enter username: ")
         if not check_user_or_pass(conn, username, "username", 1):
-            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            user_response = input("Type b to go back to main menu. Else "
+                                  "type any key to retry \n").strip().lower()
             if user_response == "b":
                 break
             continue
         
         password = input("Enter password: ")
         if not check_user_or_pass(conn, password, "password", 1):
-            user_response = input("Type b to go back to main menu. Else type any key to retry \n").strip().lower()
+            user_response = input("Type b to go back to main menu. Else "
+                                  "type any key to retry \n").strip().lower()
             if user_response == "b":
                 break
             continue
@@ -620,7 +655,8 @@ def login_interface(conn):
                 show_admin_options()
                 # return 2  # Admin user
             elif result and result[0] == 1:
-                print("You are registered as a client. Please use the client interface.")
+                print("You are registered as a client. "
+                      "Please use the client interface.")
                 # return 1  # Regular user
             else:
                 print("Invalid username or password.")
@@ -631,7 +667,8 @@ def login_interface(conn):
             sys.stderr.write(f"Error: {err}\n")
         finally:
             cursor.close()
-        ans = input("\nPress Enter to try logging in again or type exit to return to the main page: ")
+        ans = input("\nPress Enter to try logging in again or "
+                    "type exit to return to the main page: ")
         if ans == "exit":
             break
 
@@ -648,10 +685,13 @@ def show_admin_options():
     Displays options specific for admins, such as adding new data <x>,
     modifying <x> based on a given id, removing <x>, etc.
     """
-    # Here are some examples of admin functionalities that would be useful in our application.
-    # Updating a customer's information could be a spot for some client admin interaction.
-    # There are also specific statistics only admins can view such as store performance reports,
-    # as if competitors get access to this information, that might cause issues as that could be private info.
+    # Here are some examples of admin functionalities that would be 
+    # useful in our application.
+    # Updating a customer's information could be a spot for some client 
+    # admin interaction.
+    # There are also specific statistics only admins can view such as 
+    # store performance reports, as if competitors get access to this 
+    # information, that might cause issues as that could be private info.
     while True:
         print_section_header("Menu Page")
         print('What would you like to do? ')
@@ -678,8 +718,6 @@ def quit_ui():
     """
     Quits the program, printing a goodbye message to the user.
     """
-    # We can also add some bullet points here to summarize some cool statistics from the data and leave the user off
-    # with something interesting about retail data!
     print('Good bye!')
     exit()
 
