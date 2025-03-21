@@ -18,21 +18,25 @@ $ cd cs121_final_project
 $ pip install -r requirements.txt ```
 (This step might take 2-5 minutes)
 
-To get into mysql run: mysql --local-infile=1 -u root -p
+To get into mysql run:
+```mysql --local-infile=1 -u root -p```
 
 To create the database, run
 ```
 mysql> CREATE DATABASE retaildb; 
 mysql> USE retaildb;
+```
 
-To setup and load data, run 
+To setup and load data, run
+```
 mysql> source setup.sql; 
 mysql> source load-data.sql; 
 mysql> source setup-passwords.sql; 
 mysql> source setup-routines.sql; 
 mysql> source grant-permissions.sql; 
 mysql> source queries.sql;
-mysql> quit;```
+mysql> quit;
+```
 
 To run the application as a client, run ```$ python3 app-client.py```
 
