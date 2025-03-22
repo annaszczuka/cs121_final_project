@@ -686,7 +686,7 @@ def get_store_chain(conn, store_id):
     print_section_header("Store Chain Info")
     cursor = conn.cursor()
 
-    if not store_id.isdigit():
+    if not str(store_id).isdigit():
             print(f"Invalid input for {store_id}. Please enter a valid number.")
     cursor.execute("SELECT COUNT(*) FROM store WHERE store_id = %s", (store_id,))
     exists = cursor.fetchone()[0]
