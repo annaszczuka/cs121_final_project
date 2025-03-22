@@ -50,6 +50,6 @@ Upon running these Python files, one will be prompted to create an account or lo
 Afterward, the output in the command line terminal will contain instructions on what retail statistics to explore. 
 Users will be prompted to enter digits or letter choices to navigate retail store statistics.
 
-One feature that remains unfinished within the scope of this project is the admin having the ability to insert a purchase at a new store 
+One area of future work (that was beyond the scope of this project) is the admin having the ability to insert a purchase at a new store 
 and for a new customer who has not yet purchased anything previously. This functionality would have included additional triggers to ensure 
 tables update correctly, which have not yet been implemented.
