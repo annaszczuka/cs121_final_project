@@ -370,8 +370,9 @@ def get_store_stats(conn):
               "transactions, total revenue, and average foot traffic. ")
         print("  (c) - Get store statistics based on store_id")
         print("  (d) - Find Store Chain Based on Store ID")
-        print("  (e) - Return to menu page")
-        print("  (f) - Quit")
+        print("  (e) - Get total profit for each store chain & location")
+        print("  (f) - Return to menu page")
+        print("  (g) - Quit")
       
         ans = input("Enter an option: ").lower()
         if ans == 'a':
@@ -469,8 +470,6 @@ def get_store_stats(conn):
                 stored_id_res = get_store_chain_less_format(conn, store_id_input)
                 print(f"Store chain {stored_id_res} corresponds to "
                       f"store id {store_id_input}")
-        elif ans == 'e':
-            show_client_options(conn)
         elif ans == 'd':
             user_res = input("Please enter store ID: \n")
             if not user_res.isdigit():
@@ -487,11 +486,15 @@ def get_store_stats(conn):
             stored_id_res = get_store_chain_less_format(conn, user_res)
             print(f"Store chain {stored_id_res} corresponds "
                   f"to store id {user_res}")
-            
+        elif ans == 'e':
+            get_store_profit_stats(conn)
         elif ans == 'f':
+            show_client_options(conn)
+        elif ans == 'g':
             quit_ui()
         else:
             print("Invalid option. Please try again. ")
+
 
             
 def get_more_gender_analysis(conn, product_category):
@@ -594,6 +597,65 @@ def get_wants_versus_needs_per_age_group(conn):
                                   tablefmt="grid") + "\n")
         else:
             print("\nNo results found.\n")
+
+    except mysql.connector.Error as err:
+        sys.stderr.write(f"Error: {err}\n")
+    finally:
+        cursor.close()
+
+
+def get_store_profit_stats(conn):
+    cursor = conn.cursor()
+    print_section_header("Store Analysis Page")
+    print("Welcome! You are viewing the total profits of each store chain (using id)"
+          "and location.")
+    query = """
+            SELECT
+                s.store_chain_name,
+                i.store_location,
+                SUM(p.purchased_product_price_usd - i.product_cost_usd) AS total_profit
+            FROM inventory i
+            JOIN purchase p
+                ON i.product_id = p.product_id
+                AND i.store_id = p.store_id
+                AND i.store_location = p.store_location
+            JOIN store s
+                ON i.store_id = s.store_id
+                AND i.store_location = s.store_location
+            GROUP BY
+                s.store_chain_name,
+                i.store_location;
+            """
+    try:
+        cursor.execute(query)
+        results = cursor.fetchall()
+        headers = ["Store Chain", "Store Location", "Total Profit"]
+
+        page_size = 10
+        total_rows = len(results)
+        total_pages = (total_rows + page_size - 1) // page_size
+        start = 0
+        page_num = 1
+
+        while start < total_rows:
+            end = start + page_size
+            table = [list(row) for row in results[start:end]]
+
+            print("\nStore Profit Statistics")
+            print(tabulate(table, headers=headers, tablefmt="pretty"))
+
+            print(f"\nPage {page_num} of {total_pages}")
+
+            if end >= total_rows:
+                break
+
+            user_input = input("\nPress 'N' to view next page, or "
+                               "any other key to exit: ").strip().lower()
+            if user_input != 'n':
+                break
+
+            start += page_size
+            page_num += 1
 
     except mysql.connector.Error as err:
         sys.stderr.write(f"Error: {err}\n")
