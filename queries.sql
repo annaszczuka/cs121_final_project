@@ -243,6 +243,37 @@ SELECT store_id, total_sales,
     min_price, max_price
 FROM mv_store_sales_stats;
 
+-- Equivalent Query A*
+-- Calculate the total number of purchases and the average spending per transaction for each gender present in the
+-- dataset. Equivalent to RA expression 2) in Part G.
+SELECT
+    c.gender,
+    COUNT(p.purchase_id) AS total_purchases,
+    ROUND(AVG(p.purchased_product_price_usd), 2) AS avg_spent_per_transaction
+FROM customer c
+JOIN purchase p
+    ON c.customer_id = p.customer_id
+GROUP BY c.gender;
+
+-- Equivalent Query B*
+-- Calculates the profit for each store chain location using the amount of money the product was purchased for
+-- for each purchased product at that store chain and location for each store, subtracted from the cost
+-- it took to make the product. In short, we get the store locations and total profit for each store based on
+-- all the products sold at the store. This query is equivalent to RA expression 4) in part G.
+SELECT
+    i.store_id,
+    i.store_location,
+    SUM(p.purchased_product_price_usd - i.product_cost_usd) AS total_profit
+FROM inventory i
+JOIN purchase p
+    ON i.product_id = p.product_id
+    AND i.store_id = p.store_id
+    AND i.store_location = p.store_location
+GROUP BY
+    i.store_id,
+    i.store_location;
+
+
 -- The following queries require user input. We could theoretically input 
 -- arbitrary values, but this will result in users being created before 
 -- the application runs, which is not necessary.
