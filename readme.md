@@ -1,3 +1,5 @@
+# A Retail Database Interface
+
 Our data comes from the public kaggle dataset linked below: 
 https://www.kaggle.com/datasets/abdurraziq01/retail-data/data
 
